@@ -1,0 +1,136 @@
+/* Daisyworld Simulation Styles */
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: #f9f9f9;
+}
+
+h1 {
+  color: #2c3e50;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.visualization {
+  flex: 1;
+  min-width: 500px;
+}
+
+.controls {
+  flex: 0 0 300px;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.control-group {
+  margin-bottom: 20px;
+}
+
+.control-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #333;
+}
+
+.slider-container {
+  display: flex;
+  align-items: center;
+}
+
+.slider-container input {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.slider-value {
+  width: 50px;
+  text-align: right;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+button {
+  padding: 10px 15px;
+  margin-right: 10px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+button:hover {
+  background: #45a049;
+}
+
+button:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+}
+
+.preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.preset-button {
+  background: #2196F3;
+  margin: 0;
+  flex: 0 0 calc(50% - 5px);
+}
+
+.preset-button:hover {
+  background: #0b7dda;
+}
+
+canvas {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 15px;
+  width: 100%;
+  height: auto;
+}
+
+#simulation-status {
+  margin-top: 15px;
+  font-style: italic;
+  color: #666;
+  padding: 8px;
+  border-top: 1px solid #eee;
+}
+
+/* Graph container */
+#graphs {
+  margin-top: 20px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+  }
+  
+  .visualization,
+  .controls {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}
