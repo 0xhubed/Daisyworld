@@ -1,0 +1,53 @@
+{
+  "name": "daisyworld",
+  "version": "0.1.0",
+  "description": "Interactive simulation of James Lovelock's Daisyworld model",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "start": "webpack serve --open",
+    "build": "webpack --mode production"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xhubed/testDaisyworld.git"
+  },
+  "keywords": [
+    "daisyworld",
+    "simulation",
+    "gaia",
+    "lovelock",
+    "self-regulation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/0xhubed/testDaisyworld/issues"
+  },
+  "homepage": "https://github.com/0xhubed/testDaisyworld#readme",
+  "devDependencies": {
+    "@babel/core": "^7.22.0",
+    "@babel/preset-env": "^7.22.0",
+    "@testing-library/jest-dom": "^5.16.5",
+    "babel-jest": "^29.5.0",
+    "babel-loader": "^9.1.2",
+    "css-loader": "^6.8.1",
+    "html-webpack-plugin": "^5.5.1",
+    "jest": "^29.5.0",
+    "jest-environment-jsdom": "^29.5.0",
+    "style-loader": "^3.3.3",
+    "webpack": "^5.84.1",
+    "webpack-cli": "^5.1.1",
+    "webpack-dev-server": "^4.15.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.3.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setupTests.js"
+    ]
+  }
+}
