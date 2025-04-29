@@ -2,7 +2,7 @@
   "name": "daisyworld",
   "version": "0.1.0",
   "description": "Interactive simulation of James Lovelock's Daisyworld model",
-  "main": "index.js",
+  "main": "src/app.js",
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
@@ -48,6 +48,12 @@
     "testEnvironment": "jsdom",
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setupTests.js"
-    ]
+    ],
+    "transform": {
+      "^.+\\.jsx?$": "babel-jest"
+    },
+    "moduleNameMapper": {
+      "\\.(css|less|sass|scss)$": "<rootDir>/tests/styleMock.js"
+    }
   }
 }
