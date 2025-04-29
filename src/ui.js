@@ -1,504 +1,670 @@
 /**
- * Daisyworld UI Components
- * Implementation of the visualization and UI components for Daisyworld
+ * Daisyworld UI Controller
+ * Implements interactive controls and visualization for the Daisyworld simulation
  */
 
-/**
- * PlanetView - Renders a visual representation of the Daisyworld planet
- */
-class PlanetView {
-  /**
-   * Create a new PlanetView
-   * @param {HTMLElement} container - The container element for the planet view
-   * @param {DaisyworldModel} model - The simulation model
-   */
-  constructor(container, model) {
-    this.container = container;
-    this.model = model;
-    this.canvas = null;
-    this.ctx = null;
-    this.width = 300;
-    this.height = 300;
-    this.initialized = false;
-    
-    this.initialize();
-  }
-  
-  /**
-   * Initialize the planet view
-   */
-  initialize() {
-    // Create canvas if it doesn't exist
-    if (!this.initialized) {
-      this.canvas = document.createElement('canvas');
-      this.canvas.width = this.width;
-      this.canvas.height = this.height;
-      this.container.appendChild(this.canvas);
-      this.ctx = this.canvas.getContext('2d');
-      this.initialized = true;
-    }
-  }
-  
-  /**
-   * Render the planet view based on current model state
-   */
-  render() {
-    if (!this.initialized) {
-      this.initialize();
-    }
-    
-    const ctx = this.ctx;
-    const centerX = this.width / 2;
-    const centerY = this.height / 2;
-    const radius = Math.min(centerX, centerY) - 10;
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, this.width, this.height);
-    
-    // Get current model data
-    const whiteCoverage = this.model.getWhiteDaisyCoverage();
-    const blackCoverage = this.model.getBlackDaisyCoverage();
-    const bareSoilCoverage = this.model.getBareSoilCoverage();
-    
-    // Calculate angles for pie segments
-    const whiteAngle = whiteCoverage * Math.PI * 2;
-    const blackAngle = blackCoverage * Math.PI * 2;
-    const bareSoilAngle = bareSoilCoverage * Math.PI * 2;
-    
-    // Draw white daisy segment
-    let startAngle = 0;
-    let endAngle = whiteAngle;
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-    ctx.closePath();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fill();
-    
-    // Draw black daisy segment
-    startAngle = endAngle;
-    endAngle += blackAngle;
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-    ctx.closePath();
-    ctx.fillStyle = '#333333';
-    ctx.fill();
-    
-    // Draw bare soil segment
-    startAngle = endAngle;
-    endAngle += bareSoilAngle;
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-    ctx.closePath();
-    ctx.fillStyle = '#A97655'; // Soil color
-    ctx.fill();
-    
-    // Draw planet outline
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    ctx.strokeStyle = '#2c3e50';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    // Update stats displays
-    this.updateStats();
-  }
-  
-  /**
-   * Update the statistics displays
-   */
-  updateStats() {
-    // Get elements
-    const temperatureElement = document.getElementById('temperature-value');
-    const whiteDaisyElement = document.getElementById('white-daisy-value');
-    const blackDaisyElement = document.getElementById('black-daisy-value');
-    const bareSoilElement = document.getElementById('bare-soil-value');
-    
-    // Get values from model
-    const temperature = this.model.getPlanetTemperature();
-    const whiteCoverage = this.model.getWhiteDaisyCoverage() * 100;
-    const blackCoverage = this.model.getBlackDaisyCoverage() * 100;
-    const bareSoilCoverage = this.model.getBareSoilCoverage() * 100;
-    
-    // Update text content
-    temperatureElement.textContent = \`\${(temperature - 273.15).toFixed(1)}°C\`;
-    whiteDaisyElement.textContent = \`\${whiteCoverage.toFixed(1)}%\`;
-    blackDaisyElement.textContent = \`\${blackCoverage.toFixed(1)}%\`;
-    bareSoilElement.textContent = \`\${bareSoilCoverage.toFixed(1)}%\`;
-  }
-}
+// Import styles
+import './styles.css';
 
-/**
- * TimeSeriesGraph - Simple visual representation of data changes over time
- */
-class TimeSeriesGraph {
-  /**
-   * Create a new TimeSeriesGraph
-   * @param {HTMLElement} container - The container element for the graph
-   */
-  constructor(container) {
-    this.container = container;
-    this.temperatureData = [];
-    this.whiteDaisyData = [];
-    this.blackDaisyData = [];
-    this.timeData = [];
-    this.maxDataPoints = 100; // Maximum number of data points to store
-    
-    // Basic graph representation for Phase 2
-    this.canvas = document.createElement('canvas');
-    this.container.appendChild(this.canvas);
-    this.ctx = this.canvas.getContext('2d');
-    
-    // Set canvas size to match container
-    this.resizeCanvas();
-    
-    // Handle window resize
-    window.addEventListener('resize', () => this.resizeCanvas());
-  }
-  
-  /**
-   * Resize canvas to match container size
-   */
-  resizeCanvas() {
-    this.canvas.width = this.container.clientWidth;
-    this.canvas.height = this.container.clientHeight;
-    this.render();
-  }
-  
-  /**
-   * Add a new data point to the graph
-   * @param {Object} data - Data point with time, temperature and coverage values
-   */
-  addDataPoint(data) {
-    this.timeData.push(data.time);
-    this.temperatureData.push(data.temperature);
-    this.whiteDaisyData.push(data.whiteDaisyCoverage);
-    this.blackDaisyData.push(data.blackDaisyCoverage);
-    
-    // Limit the number of data points
-    if (this.timeData.length > this.maxDataPoints) {
-      this.timeData.shift();
-      this.temperatureData.shift();
-      this.whiteDaisyData.shift();
-      this.blackDaisyData.shift();
-    }
-    
-    // Render the updated graph
-    this.render();
-  }
-  
-  /**
-   * Render the graph with current data
-   */
-  render() {
-    if (this.timeData.length === 0) return;
-    
-    const ctx = this.ctx;
-    const width = this.canvas.width;
-    const height = this.canvas.height;
-    const padding = 30;
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-    
-    // Draw background
-    ctx.fillStyle = '#f9f9f9';
-    ctx.fillRect(padding, padding, width - padding * 2, height - padding * 2);
-    
-    // Draw title
-    ctx.font = '16px Arial';
-    ctx.fillStyle = '#333';
-    ctx.textAlign = 'center';
-    ctx.fillText('Daisyworld Simulation Data', width / 2, 20);
-    
-    // Draw axes
-    ctx.beginPath();
-    ctx.moveTo(padding, padding);
-    ctx.lineTo(padding, height - padding);
-    ctx.lineTo(width - padding, height - padding);
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    
-    // Draw data using simple lines (basic representation for Phase 2)
-    this.drawDataLine(this.whiteDaisyData, '#3498db', 0, 1, padding, width, height);
-    this.drawDataLine(this.blackDaisyData, '#2c3e50', 0, 1, padding, width, height);
-    
-    // Add legend
-    this.drawLegend(width, height, padding);
-  }
-  
-  /**
-   * Draw a data line on the graph
-   * @param {Array} data - Array of data points
-   * @param {string} color - Color for the line
-   * @param {number} min - Minimum expected value
-   * @param {number} max - Maximum expected value
-   * @param {number} padding - Graph padding
-   * @param {number} width - Canvas width
-   * @param {number} height - Canvas height
-   */
-  drawDataLine(data, color, min, max, padding, width, height) {
-    if (data.length === 0) return;
-    
-    const ctx = this.ctx;
-    const graphWidth = width - padding * 2;
-    const graphHeight = height - padding * 2;
-    
-    // Calculate scales
-    const xScale = graphWidth / (data.length - 1 || 1);
-    const yScale = graphHeight / (max - min);
-    
-    // Begin path
-    ctx.beginPath();
-    
-    // Draw each point
-    data.forEach((value, index) => {
-      const x = padding + index * xScale;
-      const y = height - padding - (value - min) * yScale;
-      
-      if (index === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
-    });
-    
-    // Style and stroke the path
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-  
-  /**
-   * Draw a legend for the graph
-   * @param {number} width - Canvas width
-   * @param {number} height - Canvas height
-   * @param {number} padding - Graph padding
-   */
-  drawLegend(width, height, padding) {
-    const ctx = this.ctx;
-    const legendY = height - padding / 2;
-    
-    // White daisies
-    ctx.beginPath();
-    ctx.moveTo(padding + 10, legendY);
-    ctx.lineTo(padding + 30, legendY);
-    ctx.strokeStyle = '#3498db';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    ctx.font = '12px Arial';
-    ctx.fillStyle = '#333';
-    ctx.textAlign = 'left';
-    ctx.fillText('White Daisies', padding + 35, legendY + 4);
-    
-    // Black daisies
-    ctx.beginPath();
-    ctx.moveTo(padding + 130, legendY);
-    ctx.lineTo(padding + 150, legendY);
-    ctx.strokeStyle = '#2c3e50';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    ctx.fillText('Black Daisies', padding + 155, legendY + 4);
-  }
-  
-  /**
-   * Reset the graph data
-   */
-  reset() {
-    this.timeData = [];
-    this.temperatureData = [];
-    this.whiteDaisyData = [];
-    this.blackDaisyData = [];
-    this.render();
-  }
-  
-  /**
-   * Get temperature data (for testing)
-   */
-  getTemperatureData() {
-    return this.temperatureData;
-  }
-  
-  /**
-   * Get white daisy data (for testing)
-   */
-  getWhiteDaisyData() {
-    return this.whiteDaisyData;
-  }
-  
-  /**
-   * Get black daisy data (for testing)
-   */
-  getBlackDaisyData() {
-    return this.blackDaisyData;
-  }
-}
+// Import Chart.js
+import Chart from 'chart.js/auto';
 
-/**
- * ControlPanel - UI for controlling simulation parameters
- */
-class ControlPanel {
-  /**
-   * Create a new ControlPanel
-   * @param {HTMLElement} container - The container element for the control panel
-   * @param {DaisyworldModel} model - The simulation model
-   */
-  constructor(container, model) {
-    this.container = container;
-    this.model = model;
-    this.initialized = false;
-    
-    // Reference to DOM elements
-    this.startButton = null;
-    this.resetButton = null;
-    this.speedSlider = null;
-    this.luminositySlider = null;
-    this.speedValue = null;
-    this.luminosityValue = null;
-    
-    this.initialize();
-  }
-  
-  /**
-   * Initialize the control panel
-   */
-  initialize() {
-    if (this.initialized) return;
-    
-    // Get elements
-    this.startButton = document.getElementById('start-button');
-    this.resetButton = document.getElementById('reset-button');
-    this.speedSlider = document.getElementById('simulation-speed');
-    this.luminositySlider = document.getElementById('solar-luminosity');
-    this.speedValue = document.getElementById('speed-value');
-    this.luminosityValue = document.getElementById('luminosity-value');
-    
-    this.initialized = true;
-    this.setupEventListeners();
-    this.updateDisplay();
-  }
-  
-  /**
-   * Set up event listeners for controls
-   */
-  setupEventListeners() {
-    // Start/pause button
-    this.startButton.addEventListener('click', () => {
-      if (this.model.isRunning()) {
-        this.model.pause();
-      } else {
-        this.model.start();
-      }
-      this.updateDisplay();
-    });
-    
-    // Reset button
-    this.resetButton.addEventListener('click', () => {
-      this.model.reset();
-      this.updateDisplay();
-    });
-    
-    // Speed slider
-    this.speedSlider.addEventListener('input', () => {
-      const speed = parseFloat(this.speedSlider.value);
-      this.model.setSimulationSpeed(speed);
-      this.speedValue.textContent = \`\${speed.toFixed(1)}x\`;
-    });
-    
-    // Luminosity slider
-    this.luminositySlider.addEventListener('input', () => {
-      const luminosity = parseFloat(this.luminositySlider.value);
-      this.model.setSolarLuminosity(luminosity);
-      this.luminosityValue.textContent = luminosity.toFixed(2);
-    });
-  }
-  
-  /**
-   * Update the display based on model state
-   */
-  updateDisplay() {
-    this.startButton.textContent = this.model.isRunning() ? 'Pause' : 'Start';
-    
-    // Update sliders to match model
-    this.speedSlider.value = this.model.getSimulationSpeed();
-    this.luminositySlider.value = this.model.getSolarLuminosity();
-    
-    // Update value displays
-    this.speedValue.textContent = \`\${this.model.getSimulationSpeed().toFixed(1)}x\`;
-    this.luminosityValue.textContent = this.model.getSolarLuminosity().toFixed(2);
-  }
-  
-  /**
-   * Render the control panel (for testing compatibility)
-   */
-  render() {
-    this.updateDisplay();
-  }
-}
+// Import the model
+const { DaisyworldModel, Planet, Daisy } = require('./model.js');
 
-/**
- * DaisyworldUI - Main UI class that integrates all components
- */
-class DaisyworldUI {
-  /**
-   * Create a new DaisyworldUI
-   * @param {HTMLElement} container - The container for the entire UI
-   * @param {DaisyworldModel} model - The simulation model
-   */
-  constructor(container, model) {
-    this.container = container;
-    this.model = model;
-    this.planetView = null;
-    this.timeSeriesGraph = null;
-    this.controlPanel = null;
-    
-    this.initialize();
-  }
-  
-  /**
-   * Initialize all UI components
-   */
-  initialize() {
-    // Create planet view
-    const planetViewContainer = document.getElementById('planet-view');
-    this.planetView = new PlanetView(planetViewContainer, this.model);
-    
-    // Create time series graph
-    const timeSeriesContainer = document.getElementById('timeseries-graph');
-    this.timeSeriesGraph = new TimeSeriesGraph(timeSeriesContainer);
-    
-    // Create control panel
-    const controlPanelContainer = document.getElementById('control-panel');
-    this.controlPanel = new ControlPanel(controlPanelContainer, this.model);
-    
-    // Set up model listener for updates
-    this.model.onTimeStep((data) => {
-      this.timeSeriesGraph.addDataPoint(data);
-      this.planetView.render();
-    });
-    
-    // Initial render
-    this.render();
-  }
-  
-  /**
-   * Render all UI components
-   */
-  render() {
-    this.planetView.render();
-    this.controlPanel.render();
-  }
-}
+// Create the model with default parameters
+let model = new DaisyworldModel();
 
-// Export UI classes
-export {
-  DaisyworldUI,
-  PlanetView,
-  TimeSeriesGraph,
-  ControlPanel
+// Track simulation data for graphs
+const timeSeriesData = {
+  times: [],
+  temperatures: [],
+  whiteDaisyCoverage: [],
+  blackDaisyCoverage: [],
+  bareSoilCoverage: []
 };
+
+// Maximum number of data points to keep in time series
+const MAX_DATA_POINTS = 100;
+
+// Canvas and context for planet visualization
+const planetCanvas = document.getElementById('planet-canvas');
+const planetCtx = planetCanvas ? planetCanvas.getContext('2d') : null;
+
+// Initialize charts
+let temperatureChart;
+let populationChart;
+
+// Control elements
+let startButton, pauseButton, resetButton, stepButton;
+let simulationSpeedSlider, simulationSpeedValue;
+let solarLuminositySlider, solarLuminosityValue;
+let whiteDaisyCoverageSlider, whiteDaisyCoverageValue;
+let blackDaisyCoverageSlider, blackDaisyCoverageValue;
+let deathRateSlider, deathRateValue;
+let simulationStatus;
+
+// Preset buttons
+let presetStableButton, presetIncreasingButton, presetWhiteDominantButton, presetBlackDominantButton;
+
+/**
+ * Initialize the UI components
+ */
+function initializeUI() {
+  // Initialize DOM element references
+  startButton = document.getElementById('start-btn');
+  pauseButton = document.getElementById('pause-btn');
+  resetButton = document.getElementById('reset-btn');
+  stepButton = document.getElementById('step-btn');
+  simulationSpeedSlider = document.getElementById('simulation-speed');
+  simulationSpeedValue = document.getElementById('simulation-speed-value');
+  solarLuminositySlider = document.getElementById('solar-luminosity');
+  solarLuminosityValue = document.getElementById('solar-luminosity-value');
+  whiteDaisyCoverageSlider = document.getElementById('white-daisy-coverage');
+  whiteDaisyCoverageValue = document.getElementById('white-daisy-coverage-value');
+  blackDaisyCoverageSlider = document.getElementById('black-daisy-coverage');
+  blackDaisyCoverageValue = document.getElementById('black-daisy-coverage-value');
+  deathRateSlider = document.getElementById('death-rate');
+  deathRateValue = document.getElementById('death-rate-value');
+  simulationStatus = document.getElementById('simulation-status');
+  
+  // Preset buttons
+  presetStableButton = document.getElementById('preset-stable');
+  presetIncreasingButton = document.getElementById('preset-increasing');
+  presetWhiteDominantButton = document.getElementById('preset-white-dominant');
+  presetBlackDominantButton = document.getElementById('preset-black-dominant');
+  
+  // Set up initial slider values
+  updateSliderDisplays();
+  
+  // Initialize model event listeners
+  model.onTimeStep(handleTimeStep);
+  
+  // Create charts
+  createCharts();
+  
+  // Set up button event listeners
+  setupEventListeners();
+  
+  // Draw initial planet state
+  drawPlanet();
+  
+  updateSimulationStatus('Simulation ready');
+}
+
+/**
+ * Update all slider display values
+ */
+function updateSliderDisplays() {
+  if (!simulationSpeedValue || !solarLuminosityValue || 
+      !whiteDaisyCoverageValue || !blackDaisyCoverageValue || !deathRateValue) {
+    return;
+  }
+  
+  simulationSpeedValue.textContent = parseFloat(simulationSpeedSlider.value).toFixed(1);
+  solarLuminosityValue.textContent = parseFloat(solarLuminositySlider.value).toFixed(2);
+  whiteDaisyCoverageValue.textContent = parseFloat(whiteDaisyCoverageSlider.value).toFixed(2);
+  blackDaisyCoverageValue.textContent = parseFloat(blackDaisyCoverageSlider.value).toFixed(2);
+  deathRateValue.textContent = parseFloat(deathRateSlider.value).toFixed(2);
+}
+
+/**
+ * Create time series charts
+ */
+function createCharts() {
+  const temperatureCtx = document.getElementById('temperature-graph');
+  const populationCtx = document.getElementById('population-graph');
+  
+  if (!temperatureCtx || !populationCtx) {
+    return;
+  }
+  
+  // Temperature chart
+  temperatureChart = new Chart(temperatureCtx.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Planet Temperature (K)',
+        data: [],
+        borderColor: 'rgb(255, 99, 132)',
+        tension: 0.1
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: false
+        }
+      },
+      animation: {
+        duration: 0 // Disable animation for performance
+      },
+      maintainAspectRatio: false
+    }
+  });
+  
+  // Population chart
+  populationChart = new Chart(populationCtx.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'White Daisies',
+          data: [],
+          borderColor: 'rgb(200, 200, 200)',
+          backgroundColor: 'rgba(200, 200, 200, 0.5)',
+          fill: true,
+          tension: 0.1
+        },
+        {
+          label: 'Black Daisies',
+          data: [],
+          borderColor: 'rgb(0, 0, 0)',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          fill: true,
+          tension: 0.1
+        },
+        {
+          label: 'Bare Soil',
+          data: [],
+          borderColor: 'rgb(139, 69, 19)',
+          backgroundColor: 'rgba(139, 69, 19, 0.5)',
+          fill: true,
+          tension: 0.1
+        }
+      ]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 1
+        }
+      },
+      animation: {
+        duration: 0 // Disable animation for performance
+      },
+      maintainAspectRatio: false
+    }
+  });
+}
+
+/**
+ * Set up event listeners for UI controls
+ */
+function setupEventListeners() {
+  if (!startButton || !pauseButton || !resetButton || !stepButton ||
+      !simulationSpeedSlider || !solarLuminositySlider || 
+      !whiteDaisyCoverageSlider || !blackDaisyCoverageSlider || !deathRateSlider ||
+      !presetStableButton || !presetIncreasingButton || 
+      !presetWhiteDominantButton || !presetBlackDominantButton) {
+    console.error('UI elements not found');
+    return;
+  }
+  
+  // Simulation control buttons
+  startButton.addEventListener('click', startSimulation);
+  pauseButton.addEventListener('click', pauseSimulation);
+  resetButton.addEventListener('click', resetSimulation);
+  stepButton.addEventListener('click', stepSimulation);
+  
+  // Slider input events
+  simulationSpeedSlider.addEventListener('input', function() {
+    simulationSpeedValue.textContent = parseFloat(this.value).toFixed(1);
+    model.setSimulationSpeed(parseFloat(this.value));
+  });
+  
+  solarLuminositySlider.addEventListener('input', function() {
+    solarLuminosityValue.textContent = parseFloat(this.value).toFixed(2);
+    model.setSolarLuminosity(parseFloat(this.value));
+  });
+  
+  whiteDaisyCoverageSlider.addEventListener('input', function() {
+    whiteDaisyCoverageValue.textContent = parseFloat(this.value).toFixed(2);
+    // Only update when simulation is not running
+    if (!model.isRunning()) {
+      model.setWhiteDaisyCoverage(parseFloat(this.value));
+      drawPlanet();
+    }
+  });
+  
+  blackDaisyCoverageSlider.addEventListener('input', function() {
+    blackDaisyCoverageValue.textContent = parseFloat(this.value).toFixed(2);
+    // Only update when simulation is not running
+    if (!model.isRunning()) {
+      model.setBlackDaisyCoverage(parseFloat(this.value));
+      drawPlanet();
+    }
+  });
+  
+  deathRateSlider.addEventListener('input', function() {
+    deathRateValue.textContent = parseFloat(this.value).toFixed(2);
+  });
+  
+  // Preset buttons
+  presetStableButton.addEventListener('click', loadStablePreset);
+  presetIncreasingButton.addEventListener('click', loadIncreasingLuminosityPreset);
+  presetWhiteDominantButton.addEventListener('click', loadWhiteDominantPreset);
+  presetBlackDominantButton.addEventListener('click', loadBlackDominantPreset);
+}
+
+/**
+ * Start the simulation
+ */
+function startSimulation() {
+  // Make sure we're not already running
+  if (!model.isRunning()) {
+    // Apply any pending parameter changes
+    applyParameterChanges();
+    
+    model.start();
+    startButton.disabled = true;
+    pauseButton.disabled = false;
+    disableInitialConditionControls(true);
+    
+    updateSimulationStatus('Simulation running');
+  }
+}
+
+/**
+ * Pause the simulation
+ */
+function pauseSimulation() {
+  if (model.isRunning()) {
+    model.pause();
+    startButton.disabled = false;
+    pauseButton.disabled = true;
+    
+    updateSimulationStatus('Simulation paused');
+  }
+}
+
+/**
+ * Reset the simulation
+ */
+function resetSimulation() {
+  // Pause if running
+  if (model.isRunning()) {
+    pauseSimulation();
+  }
+  
+  // Reset the model with current UI parameters
+  const params = {
+    solarLuminosity: parseFloat(solarLuminositySlider.value),
+    whiteDaisyInit: parseFloat(whiteDaisyCoverageSlider.value),
+    blackDaisyInit: parseFloat(blackDaisyCoverageSlider.value),
+    deathRate: parseFloat(deathRateSlider.value),
+    simulationSpeed: parseFloat(simulationSpeedSlider.value)
+  };
+  
+  model.reset(params);
+  
+  // Reset time series data
+  clearTimeSeriesData();
+  
+  // Update UI
+  drawPlanet();
+  updateCharts();
+  disableInitialConditionControls(false);
+  
+  updateSimulationStatus('Simulation reset');
+}
+
+/**
+ * Perform a single simulation step
+ */
+function stepSimulation() {
+  if (!model.isRunning()) {
+    // Apply any pending parameter changes
+    applyParameterChanges();
+    
+    model.step();
+    drawPlanet();
+    
+    updateSimulationStatus('Simulation stepped');
+  }
+}
+
+/**
+ * Apply current UI parameter values to the model
+ */
+function applyParameterChanges() {
+  model.setSolarLuminosity(parseFloat(solarLuminositySlider.value));
+  model.setSimulationSpeed(parseFloat(simulationSpeedSlider.value));
+  
+  // These should only be applied when not running
+  if (!model.isRunning()) {
+    model.setWhiteDaisyCoverage(parseFloat(whiteDaisyCoverageSlider.value));
+    model.setBlackDaisyCoverage(parseFloat(blackDaisyCoverageSlider.value));
+    
+    // Need to reset to apply death rate changes
+    const params = {
+      solarLuminosity: parseFloat(solarLuminositySlider.value),
+      whiteDaisyInit: model.getWhiteDaisyCoverage(),
+      blackDaisyInit: model.getBlackDaisyCoverage(),
+      deathRate: parseFloat(deathRateSlider.value),
+      simulationSpeed: parseFloat(simulationSpeedSlider.value)
+    };
+    
+    model.reset(params);
+  }
+}
+
+/**
+ * Enable/disable initial condition controls when simulation is running
+ */
+function disableInitialConditionControls(disabled) {
+  whiteDaisyCoverageSlider.disabled = disabled;
+  blackDaisyCoverageSlider.disabled = disabled;
+  deathRateSlider.disabled = disabled;
+  presetStableButton.disabled = disabled;
+  presetIncreasingButton.disabled = disabled;
+  presetWhiteDominantButton.disabled = disabled;
+  presetBlackDominantButton.disabled = disabled;
+}
+
+/**
+ * Update the simulation status display
+ */
+function updateSimulationStatus(message) {
+  if (simulationStatus) {
+    simulationStatus.textContent = message;
+  }
+}
+
+/**
+ * Handle time step event from the model
+ */
+function handleTimeStep(data) {
+  // Add data to time series
+  addTimeSeriesDataPoint(data);
+  
+  // Update visualizations
+  drawPlanet();
+  updateCharts();
+  
+  // Update status with current temperature
+  updateSimulationStatus(`Time: ${data.time}, Temperature: ${data.temperature.toFixed(1)}K`);
+}
+
+/**
+ * Add a data point to the time series
+ */
+function addTimeSeriesDataPoint(data) {
+  timeSeriesData.times.push(data.time);
+  timeSeriesData.temperatures.push(data.temperature);
+  timeSeriesData.whiteDaisyCoverage.push(data.whiteDaisyCoverage);
+  timeSeriesData.blackDaisyCoverage.push(data.blackDaisyCoverage);
+  timeSeriesData.bareSoilCoverage.push(1 - data.whiteDaisyCoverage - data.blackDaisyCoverage);
+  
+  // Limit the number of data points
+  if (timeSeriesData.times.length > MAX_DATA_POINTS) {
+    timeSeriesData.times.shift();
+    timeSeriesData.temperatures.shift();
+    timeSeriesData.whiteDaisyCoverage.shift();
+    timeSeriesData.blackDaisyCoverage.shift();
+    timeSeriesData.bareSoilCoverage.shift();
+  }
+}
+
+/**
+ * Clear time series data
+ */
+function clearTimeSeriesData() {
+  timeSeriesData.times = [];
+  timeSeriesData.temperatures = [];
+  timeSeriesData.whiteDaisyCoverage = [];
+  timeSeriesData.blackDaisyCoverage = [];
+  timeSeriesData.bareSoilCoverage = [];
+}
+
+/**
+ * Draw the planet visualization
+ */
+function drawPlanet() {
+  if (!planetCtx) return;
+  
+  // Get current state
+  const whiteCoverage = model.getWhiteDaisyCoverage();
+  const blackCoverage = model.getBlackDaisyCoverage();
+  const bareSoilCoverage = model.getBareSoilCoverage();
+  
+  // Clear canvas
+  planetCtx.clearRect(0, 0, planetCanvas.width, planetCanvas.height);
+  
+  // Draw planet as a circle
+  const centerX = planetCanvas.width / 2;
+  const centerY = planetCanvas.height / 2;
+  const radius = Math.min(planetCanvas.width, planetCanvas.height) / 2.5;
+  
+  // Draw segments for each surface type
+  drawPlanetSegments(centerX, centerY, radius, [
+    { portion: bareSoilCoverage, color: '#8B4513' }, // Brown for bare soil
+    { portion: whiteCoverage, color: '#E0E0E0' },    // Light gray for white daisies
+    { portion: blackCoverage, color: '#202020' }     // Dark gray for black daisies
+  ]);
+  
+  // Add temperature indicator
+  const temp = model.getPlanetTemperature();
+  planetCtx.fillStyle = '#000';
+  planetCtx.font = '14px Arial';
+  planetCtx.textAlign = 'center';
+  planetCtx.fillText(`Temperature: ${temp.toFixed(1)}K`, centerX, centerY + radius + 30);
+  
+  // Add luminosity indicator
+  const luminosity = model.getSolarLuminosity();
+  planetCtx.fillText(`Solar Luminosity: ${luminosity.toFixed(2)}`, centerX, centerY + radius + 50);
+  
+  // Update stats display if it exists in the DOM
+  updateStats(temp, whiteCoverage, blackCoverage, bareSoilCoverage);
+}
+
+/**
+ * Update statistics display elements if they exist
+ */
+function updateStats(temperature, whiteCoverage, blackCoverage, bareSoilCoverage) {
+  const temperatureElement = document.getElementById('temperature-value');
+  const whiteDaisyElement = document.getElementById('white-daisy-value');
+  const blackDaisyElement = document.getElementById('black-daisy-value');
+  const bareSoilElement = document.getElementById('bare-soil-value');
+  
+  if (temperatureElement) {
+    temperatureElement.textContent = `${(temperature - 273.15).toFixed(1)}°C`;
+  }
+  
+  if (whiteDaisyElement) {
+    whiteDaisyElement.textContent = `${(whiteCoverage * 100).toFixed(1)}%`;
+  }
+  
+  if (blackDaisyElement) {
+    blackDaisyElement.textContent = `${(blackCoverage * 100).toFixed(1)}%`;
+  }
+  
+  if (bareSoilElement) {
+    bareSoilElement.textContent = `${(bareSoilCoverage * 100).toFixed(1)}%`;
+  }
+}
+
+/**
+ * Draw planet segments based on surface coverage
+ */
+function drawPlanetSegments(centerX, centerY, radius, segments) {
+  let startAngle = 0;
+  
+  segments.forEach(segment => {
+    if (segment.portion > 0) {
+      const endAngle = startAngle + (segment.portion * Math.PI * 2);
+      
+      planetCtx.beginPath();
+      planetCtx.moveTo(centerX, centerY);
+      planetCtx.arc(centerX, centerY, radius, startAngle, endAngle);
+      planetCtx.closePath();
+      
+      planetCtx.fillStyle = segment.color;
+      planetCtx.fill();
+      
+      startAngle = endAngle;
+    }
+  });
+  
+  // Draw outline
+  planetCtx.beginPath();
+  planetCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  planetCtx.strokeStyle = '#000';
+  planetCtx.lineWidth = 2;
+  planetCtx.stroke();
+}
+
+/**
+ * Update time series charts
+ */
+function updateCharts() {
+  if (!temperatureChart || !populationChart) return;
+  
+  // Update temperature chart
+  temperatureChart.data.labels = timeSeriesData.times;
+  temperatureChart.data.datasets[0].data = timeSeriesData.temperatures;
+  temperatureChart.update();
+  
+  // Update population chart
+  populationChart.data.labels = timeSeriesData.times;
+  populationChart.data.datasets[0].data = timeSeriesData.whiteDaisyCoverage;
+  populationChart.data.datasets[1].data = timeSeriesData.blackDaisyCoverage;
+  populationChart.data.datasets[2].data = timeSeriesData.bareSoilCoverage;
+  populationChart.update();
+}
+
+/**
+ * Load stable state preset
+ */
+function loadStablePreset() {
+  // Pause if running
+  if (model.isRunning()) {
+    pauseSimulation();
+  }
+  
+  // Set parameters for stable system
+  solarLuminositySlider.value = 1.0;
+  whiteDaisyCoverageSlider.value = 0.2;
+  blackDaisyCoverageSlider.value = 0.2;
+  deathRateSlider.value = 0.3;
+  
+  // Update displays
+  updateSliderDisplays();
+  
+  // Reset simulation with these parameters
+  resetSimulation();
+  
+  updateSimulationStatus('Loaded stable state preset');
+}
+
+/**
+ * Load increasing luminosity preset
+ */
+function loadIncreasingLuminosityPreset() {
+  // Pause if running
+  if (model.isRunning()) {
+    pauseSimulation();
+  }
+  
+  // Set parameters for increasing luminosity
+  solarLuminositySlider.value = 0.7;
+  whiteDaisyCoverageSlider.value = 0.1;
+  blackDaisyCoverageSlider.value = 0.4;
+  deathRateSlider.value = 0.3;
+  
+  // Update displays
+  updateSliderDisplays();
+  
+  // Reset simulation with these parameters
+  resetSimulation();
+  
+  updateSimulationStatus('Loaded increasing luminosity preset');
+  
+  // Start simulation with auto-increasing luminosity
+  if (confirm('This preset will automatically increase solar luminosity over time. Start simulation?')) {
+    startSimulation();
+    
+    // Set up automatic luminosity increase
+    const luminosityInterval = setInterval(() => {
+      if (model.isRunning()) {
+        const currentLuminosity = parseFloat(solarLuminositySlider.value);
+        const newLuminosity = Math.min(1.6, currentLuminosity + 0.01);
+        
+        solarLuminositySlider.value = newLuminosity;
+        solarLuminosityValue.textContent = newLuminosity.toFixed(2);
+        model.setSolarLuminosity(newLuminosity);
+        
+        if (newLuminosity >= 1.6) {
+          clearInterval(luminosityInterval);
+        }
+      } else {
+        clearInterval(luminosityInterval);
+      }
+    }, 1000);
+  }
+}
+
+/**
+ * Load white daisy dominant preset
+ */
+function loadWhiteDominantPreset() {
+  // Pause if running
+  if (model.isRunning()) {
+    pauseSimulation();
+  }
+  
+  // Set parameters for white daisy dominance
+  solarLuminositySlider.value = 1.3;
+  whiteDaisyCoverageSlider.value = 0.4;
+  blackDaisyCoverageSlider.value = 0.05;
+  deathRateSlider.value = 0.25;
+  
+  // Update displays
+  updateSliderDisplays();
+  
+  // Reset simulation with these parameters
+  resetSimulation();
+  
+  updateSimulationStatus('Loaded white daisy dominant preset');
+}
+
+/**
+ * Load black daisy dominant preset
+ */
+function loadBlackDominantPreset() {
+  // Pause if running
+  if (model.isRunning()) {
+    pauseSimulation();
+  }
+  
+  // Set parameters for black daisy dominance
+  solarLuminositySlider.value = 0.8;
+  whiteDaisyCoverageSlider.value = 0.05;
+  blackDaisyCoverageSlider.value = 0.4;
+  deathRateSlider.value = 0.25;
+  
+  // Update displays
+  updateSliderDisplays();
+  
+  // Reset simulation with these parameters
+  resetSimulation();
+  
+  updateSimulationStatus('Loaded black daisy dominant preset');
+}
+
+// Initialize UI when DOM is fully loaded
+document.addEventListener('DOMContentLoaded', initializeUI);
+
+// Export UI classes if in module context
+if (typeof module !== 'undefined' && module.exports) {
+  // For testing - export any relevant classes or functions
+  module.exports = {
+    initializeUI,
+    addTimeSeriesDataPoint,
+    clearTimeSeriesData,
+    drawPlanet
+  };
+}

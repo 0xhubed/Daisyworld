@@ -2,168 +2,194 @@
  * Daisyworld UI Component Tests
  */
 
-// Import modules to test
-import { DaisyworldModel } from '../src/model.js';
-import { DaisyworldUI, PlanetView, TimeSeriesGraph, ControlPanel } from '../src/ui.js';
+// Mock the Chart.js import
+jest.mock('chart.js/auto', () => {
+  return jest.fn().mockImplementation(() => ({
+    update: jest.fn(),
+    data: {
+      labels: [],
+      datasets: [{data: []}, {data: []}, {data: []}]
+    }
+  }));
+});
 
-// Mock model for testing UI
-class MockModel {
-  constructor() {
-    this.whiteDaisyCoverage = 0.2;
-    this.blackDaisyCoverage = 0.2;
-    this.temperature = 295;
-    this.solarLuminosity = 1.0;
-    this.simulationSpeed = 1;
-    this.running = false;
-    this.callbacks = [];
-  }
-  
-  getWhiteDaisyCoverage() { return this.whiteDaisyCoverage; }
-  getBlackDaisyCoverage() { return this.blackDaisyCoverage; }
-  getBareSoilCoverage() { return 1 - this.whiteDaisyCoverage - this.blackDaisyCoverage; }
-  getPlanetTemperature() { return this.temperature; }
-  getSolarLuminosity() { return this.solarLuminosity; }
-  getSimulationSpeed() { return this.simulationSpeed; }
-  isRunning() { return this.running; }
-  
-  setSolarLuminosity(val) { this.solarLuminosity = val; }
-  setSimulationSpeed(val) { this.simulationSpeed = val; }
-  
-  start() { this.running = true; }
-  pause() { this.running = false; }
-  
-  onTimeStep(callback) {
-    this.callbacks.push(callback);
-    return () => {
-      const index = this.callbacks.indexOf(callback);
-      if (index !== -1) {
-        this.callbacks.splice(index, 1);
-      }
-    };
-  }
-}
+// Mock the DOM APIs that aren't available in JSDOM
+global.requestAnimationFrame = jest.fn(callback => setTimeout(callback, 0));
+global.cancelAnimationFrame = jest.fn();
+
+// Import model module to test
+const { DaisyworldModel } = require('../src/model');
 
 describe('Daisyworld UI Components', () => {
   // Setup DOM environment for tests
   beforeEach(() => {
     document.body.innerHTML = `
-      <div id="daisyworld-container">
-        <div id="planet-view"></div>
-        <div id="timeseries-graph"></div>
-        <div id="control-panel">
-          <button id="start-button">Start</button>
-          <button id="reset-button">Reset</button>
-          <input type="range" id="simulation-speed" value="1">
-          <span id="speed-value">1x</span>
-          <input type="range" id="solar-luminosity" value="1">
-          <span id="luminosity-value">1.0</span>
+      <div class="container">
+        <div class="visualization">
+          <div id="planet-view">
+            <canvas id="planet-canvas" width="500" height="300"></canvas>
+          </div>
+          <div id="graphs">
+            <canvas id="temperature-graph" width="500" height="200"></canvas>
+            <canvas id="population-graph" width="500" height="200"></canvas>
+          </div>
         </div>
-        <div class="planet-stats">
-          <span id="temperature-value">22°C</span>
-          <span id="white-daisy-value">20%</span>
-          <span id="black-daisy-value">20%</span>
-          <span id="bare-soil-value">60%</span>
+        
+        <div class="controls">
+          <button id="start-btn">Start</button>
+          <button id="pause-btn">Pause</button>
+          <button id="reset-btn">Reset</button>
+          <button id="step-btn">Step</button>
+          
+          <div class="slider-container">
+            <input type="range" id="simulation-speed" min="0.1" max="10" step="0.1" value="1">
+            <span id="simulation-speed-value">1.0</span>
+          </div>
+          
+          <div class="slider-container">
+            <input type="range" id="solar-luminosity" min="0.6" max="1.6" step="0.01" value="1.0">
+            <span id="solar-luminosity-value">1.0</span>
+          </div>
+          
+          <div class="slider-container">
+            <input type="range" id="white-daisy-coverage" min="0" max="0.5" step="0.01" value="0.2">
+            <span id="white-daisy-coverage-value">0.20</span>
+          </div>
+          
+          <div class="slider-container">
+            <input type="range" id="black-daisy-coverage" min="0" max="0.5" step="0.01" value="0.2">
+            <span id="black-daisy-coverage-value">0.20</span>
+          </div>
+          
+          <div class="slider-container">
+            <input type="range" id="death-rate" min="0.1" max="0.5" step="0.01" value="0.3">
+            <span id="death-rate-value">0.30</span>
+          </div>
+          
+          <button id="preset-stable">Stable State</button>
+          <button id="preset-increasing">Increasing Luminosity</button>
+          <button id="preset-white-dominant">White Dominant</button>
+          <button id="preset-black-dominant">Black Dominant</button>
+          
+          <div id="simulation-status">Simulation ready</div>
         </div>
       </div>
     `;
+    
+    // Mock canvas context
+    const mockContext = {
+      clearRect: jest.fn(),
+      beginPath: jest.fn(),
+      moveTo: jest.fn(),
+      arc: jest.fn(),
+      closePath: jest.fn(),
+      fill: jest.fn(),
+      stroke: jest.fn(),
+      fillText: jest.fn(),
+      textAlign: 'center',
+      font: '14px Arial',
+      fillStyle: '#000',
+      strokeStyle: '#000',
+      lineWidth: 2
+    };
+    
+    HTMLCanvasElement.prototype.getContext = jest.fn(() => mockContext);
   });
   
-  describe('PlanetView', () => {
-    test('should render initial state correctly', () => {
-      const mockModel = new MockModel();
+  describe('UI Controls', () => {
+    let model;
+    
+    beforeEach(() => {
+      // Create a real model instance
+      model = new DaisyworldModel();
       
-      const planetView = new PlanetView(document.getElementById('planet-view'), mockModel);
-      planetView.render();
-      
-      // Check that canvas was created
-      const canvas = document.querySelector('#planet-view canvas');
-      expect(canvas).not.toBeNull();
-      
-      // Check stats were updated
-      expect(document.getElementById('white-daisy-value').textContent).toBe('20.0%');
-      expect(document.getElementById('black-daisy-value').textContent).toBe('20.0%');
-      expect(document.getElementById('bare-soil-value').textContent).toBe('60.0%');
-    });
-  });
-  
-  describe('TimeSeriesGraph', () => {
-    test('should initialize with empty data series', () => {
-      const graph = new TimeSeriesGraph(document.getElementById('timeseries-graph'));
-      
-      expect(graph.getTemperatureData().length).toBe(0);
-      expect(graph.getWhiteDaisyData().length).toBe(0);
-      expect(graph.getBlackDaisyData().length).toBe(0);
+      // Mock required model methods
+      model.start = jest.fn();
+      model.pause = jest.fn();
+      model.step = jest.fn();
+      model.reset = jest.fn();
+      model.setSolarLuminosity = jest.fn();
+      model.setSimulationSpeed = jest.fn();
+      model.setWhiteDaisyCoverage = jest.fn();
+      model.setBlackDaisyCoverage = jest.fn();
+      model.onTimeStep = jest.fn().mockReturnValue(() => {});
     });
     
-    test('should add data points correctly', () => {
-      const graph = new TimeSeriesGraph(document.getElementById('timeseries-graph'));
+    test('start button should call model.start', () => {
+      // Import the UI script to initialize event listeners
+      require('../src/ui');
       
-      graph.addDataPoint({
-        time: 1,
-        temperature: 295,
-        whiteDaisyCoverage: 0.2,
-        blackDaisyCoverage: 0.2
-      });
+      // Manually trigger DOMContentLoaded
+      const event = new Event('DOMContentLoaded');
+      document.dispatchEvent(event);
       
-      expect(graph.getTemperatureData().length).toBe(1);
-      expect(graph.getWhiteDaisyData().length).toBe(1);
-      expect(graph.getBlackDaisyData().length).toBe(1);
+      // Trigger start button click
+      const startBtn = document.getElementById('start-btn');
+      startBtn.click();
       
-      expect(graph.getTemperatureData()[0]).toBe(295);
-      expect(graph.getWhiteDaisyData()[0]).toBe(0.2);
-      expect(graph.getBlackDaisyData()[0]).toBe(0.2);
-    });
-  });
-  
-  describe('ControlPanel', () => {
-    test('should initialize with default values', () => {
-      const mockModel = new MockModel();
-      
-      const controlPanel = new ControlPanel(document.getElementById('control-panel'), mockModel);
-      controlPanel.render();
-      
-      // Start button should say "Start" initially
-      const startButton = document.getElementById('start-button');
-      expect(startButton.textContent).toBe('Start');
-      
-      // Set model to running state
-      mockModel.running = true;
-      controlPanel.render();
-      
-      // Start button should now say "Pause"
-      expect(startButton.textContent).toBe('Pause');
+      // Expect model.start to have been called
+      expect(model.start).toHaveBeenCalled();
     });
     
-    test('should update model on button clicks', () => {
-      const mockModel = new MockModel();
+    test('solar luminosity slider should update value display', () => {
+      // Import the UI script
+      require('../src/ui');
       
-      const controlPanel = new ControlPanel(document.getElementById('control-panel'), mockModel);
-      controlPanel.render();
+      // Manually trigger DOMContentLoaded
+      const event = new Event('DOMContentLoaded');
+      document.dispatchEvent(event);
       
-      // Initially not running
-      expect(mockModel.isRunning()).toBe(false);
+      // Simulate slider input
+      const slider = document.getElementById('solar-luminosity');
+      const valueDisplay = document.getElementById('solar-luminosity-value');
       
-      // Click start
-      document.getElementById('start-button').click();
-      expect(mockModel.isRunning()).toBe(true);
+      slider.value = '1.25';
+      // Dispatch input event
+      slider.dispatchEvent(new Event('input'));
       
-      // Click again to pause
-      document.getElementById('start-button').click();
-      expect(mockModel.isRunning()).toBe(false);
+      // Expect the value display to be updated
+      expect(valueDisplay.textContent).toBe('1.25');
+    });
+    
+    test('preset buttons should modify multiple parameters', () => {
+      // Import the UI script
+      require('../src/ui');
+      
+      // Manually trigger DOMContentLoaded
+      const event = new Event('DOMContentLoaded');
+      document.dispatchEvent(event);
+      
+      // Get the preset button
+      const stablePresetBtn = document.getElementById('preset-stable');
+      
+      // Click the preset button
+      stablePresetBtn.click();
+      
+      // Check that model.reset was called
+      expect(model.reset).toHaveBeenCalled();
+      
+      // Check that slider values are updated
+      expect(document.getElementById('solar-luminosity').value).toBe('1.0');
+      expect(document.getElementById('white-daisy-coverage').value).toBe('0.2');
+      expect(document.getElementById('black-daisy-coverage').value).toBe('0.2');
+      expect(document.getElementById('death-rate').value).toBe('0.3');
     });
   });
   
-  describe('DaisyworldUI integration', () => {
-    test('should initialize all components', () => {
-      const mockModel = new MockModel();
-      const container = document.getElementById('daisyworld-container');
+  describe('Chart Integration', () => {
+    test('Chart.js should be imported and initialized', () => {
+      // Import Chart to check it was mocked correctly
+      const Chart = require('chart.js/auto');
       
-      const ui = new DaisyworldUI(container, mockModel);
+      // Import the UI script
+      require('../src/ui');
       
-      // Check components were initialized
-      expect(ui.planetView).not.toBeNull();
-      expect(ui.timeSeriesGraph).not.toBeNull();
-      expect(ui.controlPanel).not.toBeNull();
+      // Manually trigger DOMContentLoaded
+      const event = new Event('DOMContentLoaded');
+      document.dispatchEvent(event);
+      
+      // Expect Chart to have been called twice (once for temperature, once for population)
+      expect(Chart).toHaveBeenCalledTimes(2);
     });
   });
 });

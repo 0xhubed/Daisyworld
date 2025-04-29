@@ -26,12 +26,59 @@ The simulation models:
 
 The visualization shows how these elements interact in a self-regulating system that can maintain hospitable conditions across a range of solar luminosities.
 
+## Phase 3: Interactive Controls
+
+This phase implements the interactive user interface for the Daisyworld simulation, allowing users to control and observe the simulation's behavior in real-time.
+
+### Control Panel Features
+
+#### Simulation Controls
+- **Start/Pause**: Begin or temporarily stop the simulation
+- **Reset**: Reset the simulation to the current parameter values
+- **Step**: Run a single time step of the simulation
+
+#### Parameter Adjustments
+- **Simulation Speed**: Control how quickly the simulation runs (0.1-10)
+- **Solar Luminosity**: Adjust the sun's energy output (0.6-1.6)
+- **White Daisy Coverage**: Set the initial percentage of white daisies (0-50%)
+- **Black Daisy Coverage**: Set the initial percentage of black daisies (0-50%)
+- **Death Rate**: Control the daisy death rate (10-50%)
+
+#### Scenario Presets
+- **Stable State**: A balanced ecosystem with stable temperatures
+- **Increasing Luminosity**: Start with low luminosity that automatically increases over time
+- **White Dominant**: An environment that favors white daisies
+- **Black Dominant**: An environment that favors black daisies
+
+### Visualization Components
+- **Planet View**: Visual representation of the planet's surface composition
+- **Temperature Graph**: Time series of global temperature
+- **Population Graph**: Time series showing the percentage of each surface type
+
+## Installation and Usage
+
+1. Clone the repository
+2. Navigate to the project directory
+3. Install dependencies:
+```
+npm install
+```
+4. Run the development server:
+```
+npm start
+```
+5. Build for production:
+```
+npm run build
+```
+
 ## Implementation
 
 This project is built using:
 - JavaScript for the simulation engine
 - HTML Canvas for visualization
 - Chart.js for time series graphs
+- Webpack for bundling
 
 ## Development Status
 
