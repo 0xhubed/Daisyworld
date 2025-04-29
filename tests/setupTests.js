@@ -44,23 +44,30 @@ HTMLCanvasElement.prototype.getContext = function(contextType) {
   return null;
 };
 
-// Mock Chart.js
-jest.mock('chart.js', () => {
-  return {
-    Chart: class MockChart {
-      constructor(canvas, config) {
-        this.canvas = canvas;
-        this.config = config;
-        this.data = config.data || { datasets: [] };
-      }
-      
-      update() {
-        // Mock implementation
-      }
-      
-      destroy() {
-        // Mock implementation
-      }
+// Add mock for requestAnimationFrame and cancelAnimationFrame
+global.requestAnimationFrame = function(callback) {
+  return setTimeout(callback, 0);
+};
+
+global.cancelAnimationFrame = function(id) {
+  clearTimeout(id);
+};
+
+// Mock for ES module imports
+jest.mock('chart.js', () => ({
+  Chart: class MockChart {
+    constructor(canvas, config) {
+      this.canvas = canvas;
+      this.config = config;
+      this.data = config.data || { datasets: [] };
     }
-  };
-});
+    
+    update() {
+      // Mock implementation
+    }
+    
+    destroy() {
+      // Mock implementation
+    }
+  }
+}), { virtual: true });
