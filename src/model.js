@@ -469,8 +469,8 @@ class DaisyworldModel {
   }
 }
 
-// Export model classes
-module.exports = {
+// Export model classes for ES modules
+export {
   DaisyworldModel,
   Planet,
   Daisy

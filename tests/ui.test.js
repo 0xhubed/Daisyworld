@@ -21,7 +21,6 @@ global.cancelAnimationFrame = jest.fn();
 const { DaisyworldModel } = require('../src/model');
 
 describe('Daisyworld UI Components', () => {
-  
   // Setup DOM environment for tests
   beforeEach(() => {
     document.body.innerHTML = `

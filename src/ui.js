@@ -29,39 +29,51 @@ const MAX_DATA_POINTS = 100;
 
 // Canvas and context for planet visualization
 const planetCanvas = document.getElementById('planet-canvas');
-const planetCtx = planetCanvas.getContext('2d');
+const planetCtx = planetCanvas ? planetCanvas.getContext('2d') : null;
 
 // Initialize charts
 let temperatureChart;
 let populationChart;
 
 // Control elements
-const startButton = document.getElementById('start-btn');
-const pauseButton = document.getElementById('pause-btn');
-const resetButton = document.getElementById('reset-btn');
-const stepButton = document.getElementById('step-btn');
-const simulationSpeedSlider = document.getElementById('simulation-speed');
-const simulationSpeedValue = document.getElementById('simulation-speed-value');
-const solarLuminositySlider = document.getElementById('solar-luminosity');
-const solarLuminosityValue = document.getElementById('solar-luminosity-value');
-const whiteDaisyCoverageSlider = document.getElementById('white-daisy-coverage');
-const whiteDaisyCoverageValue = document.getElementById('white-daisy-coverage-value');
-const blackDaisyCoverageSlider = document.getElementById('black-daisy-coverage');
-const blackDaisyCoverageValue = document.getElementById('black-daisy-coverage-value');
-const deathRateSlider = document.getElementById('death-rate');
-const deathRateValue = document.getElementById('death-rate-value');
-const simulationStatus = document.getElementById('simulation-status');
+let startButton, pauseButton, resetButton, stepButton;
+let simulationSpeedSlider, simulationSpeedValue;
+let solarLuminositySlider, solarLuminosityValue;
+let whiteDaisyCoverageSlider, whiteDaisyCoverageValue;
+let blackDaisyCoverageSlider, blackDaisyCoverageValue;
+let deathRateSlider, deathRateValue;
+let simulationStatus;
 
 // Preset buttons
-const presetStableButton = document.getElementById('preset-stable');
-const presetIncreasingButton = document.getElementById('preset-increasing');
-const presetWhiteDominantButton = document.getElementById('preset-white-dominant');
-const presetBlackDominantButton = document.getElementById('preset-black-dominant');
+let presetStableButton, presetIncreasingButton, presetWhiteDominantButton, presetBlackDominantButton;
 
 /**
  * Initialize the UI components
  */
 function initializeUI() {
+  // Initialize DOM element references
+  startButton = document.getElementById('start-btn');
+  pauseButton = document.getElementById('pause-btn');
+  resetButton = document.getElementById('reset-btn');
+  stepButton = document.getElementById('step-btn');
+  simulationSpeedSlider = document.getElementById('simulation-speed');
+  simulationSpeedValue = document.getElementById('simulation-speed-value');
+  solarLuminositySlider = document.getElementById('solar-luminosity');
+  solarLuminosityValue = document.getElementById('solar-luminosity-value');
+  whiteDaisyCoverageSlider = document.getElementById('white-daisy-coverage');
+  whiteDaisyCoverageValue = document.getElementById('white-daisy-coverage-value');
+  blackDaisyCoverageSlider = document.getElementById('black-daisy-coverage');
+  blackDaisyCoverageValue = document.getElementById('black-daisy-coverage-value');
+  deathRateSlider = document.getElementById('death-rate');
+  deathRateValue = document.getElementById('death-rate-value');
+  simulationStatus = document.getElementById('simulation-status');
+  
+  // Preset buttons
+  presetStableButton = document.getElementById('preset-stable');
+  presetIncreasingButton = document.getElementById('preset-increasing');
+  presetWhiteDominantButton = document.getElementById('preset-white-dominant');
+  presetBlackDominantButton = document.getElementById('preset-black-dominant');
+  
   // Set up initial slider values
   updateSliderDisplays();
   
@@ -84,6 +96,11 @@ function initializeUI() {
  * Update all slider display values
  */
 function updateSliderDisplays() {
+  if (!simulationSpeedValue || !solarLuminosityValue || 
+      !whiteDaisyCoverageValue || !blackDaisyCoverageValue || !deathRateValue) {
+    return;
+  }
+  
   simulationSpeedValue.textContent = parseFloat(simulationSpeedSlider.value).toFixed(1);
   solarLuminosityValue.textContent = parseFloat(solarLuminositySlider.value).toFixed(2);
   whiteDaisyCoverageValue.textContent = parseFloat(whiteDaisyCoverageSlider.value).toFixed(2);
@@ -95,9 +112,15 @@ function updateSliderDisplays() {
  * Create time series charts
  */
 function createCharts() {
+  const temperatureCtx = document.getElementById('temperature-graph');
+  const populationCtx = document.getElementById('population-graph');
+  
+  if (!temperatureCtx || !populationCtx) {
+    return;
+  }
+  
   // Temperature chart
-  const temperatureCtx = document.getElementById('temperature-graph').getContext('2d');
-  temperatureChart = new Chart(temperatureCtx, {
+  temperatureChart = new Chart(temperatureCtx.getContext('2d'), {
     type: 'line',
     data: {
       labels: [],
@@ -122,8 +145,7 @@ function createCharts() {
   });
   
   // Population chart
-  const populationCtx = document.getElementById('population-graph').getContext('2d');
-  populationChart = new Chart(populationCtx, {
+  populationChart = new Chart(populationCtx.getContext('2d'), {
     type: 'line',
     data: {
       labels: [],
@@ -173,6 +195,15 @@ function createCharts() {
  * Set up event listeners for UI controls
  */
 function setupEventListeners() {
+  if (!startButton || !pauseButton || !resetButton || !stepButton ||
+      !simulationSpeedSlider || !solarLuminositySlider || 
+      !whiteDaisyCoverageSlider || !blackDaisyCoverageSlider || !deathRateSlider ||
+      !presetStableButton || !presetIncreasingButton || 
+      !presetWhiteDominantButton || !presetBlackDominantButton) {
+    console.error('UI elements not found');
+    return;
+  }
+  
   // Simulation control buttons
   startButton.addEventListener('click', startSimulation);
   pauseButton.addEventListener('click', pauseSimulation);
@@ -338,7 +369,9 @@ function disableInitialConditionControls(disabled) {
  * Update the simulation status display
  */
 function updateSimulationStatus(message) {
-  simulationStatus.textContent = message;
+  if (simulationStatus) {
+    simulationStatus.textContent = message;
+  }
 }
 
 /**
@@ -391,6 +424,8 @@ function clearTimeSeriesData() {
  * Draw the planet visualization
  */
 function drawPlanet() {
+  if (!planetCtx) return;
+  
   // Get current state
   const whiteCoverage = model.getWhiteDaisyCoverage();
   const blackCoverage = model.getBlackDaisyCoverage();
@@ -421,6 +456,35 @@ function drawPlanet() {
   // Add luminosity indicator
   const luminosity = model.getSolarLuminosity();
   planetCtx.fillText(`Solar Luminosity: ${luminosity.toFixed(2)}`, centerX, centerY + radius + 50);
+  
+  // Update stats display if it exists in the DOM
+  updateStats(temp, whiteCoverage, blackCoverage, bareSoilCoverage);
+}
+
+/**
+ * Update statistics display elements if they exist
+ */
+function updateStats(temperature, whiteCoverage, blackCoverage, bareSoilCoverage) {
+  const temperatureElement = document.getElementById('temperature-value');
+  const whiteDaisyElement = document.getElementById('white-daisy-value');
+  const blackDaisyElement = document.getElementById('black-daisy-value');
+  const bareSoilElement = document.getElementById('bare-soil-value');
+  
+  if (temperatureElement) {
+    temperatureElement.textContent = `${(temperature - 273.15).toFixed(1)}°C`;
+  }
+  
+  if (whiteDaisyElement) {
+    whiteDaisyElement.textContent = `${(whiteCoverage * 100).toFixed(1)}%`;
+  }
+  
+  if (blackDaisyElement) {
+    blackDaisyElement.textContent = `${(blackCoverage * 100).toFixed(1)}%`;
+  }
+  
+  if (bareSoilElement) {
+    bareSoilElement.textContent = `${(bareSoilCoverage * 100).toFixed(1)}%`;
+  }
 }
 
 /**
@@ -457,6 +521,8 @@ function drawPlanetSegments(centerX, centerY, radius, segments) {
  * Update time series charts
  */
 function updateCharts() {
+  if (!temperatureChart || !populationChart) return;
+  
   // Update temperature chart
   temperatureChart.data.labels = timeSeriesData.times;
   temperatureChart.data.datasets[0].data = timeSeriesData.temperatures;
@@ -591,3 +657,14 @@ function loadBlackDominantPreset() {
 
 // Initialize UI when DOM is fully loaded
 document.addEventListener('DOMContentLoaded', initializeUI);
+
+// Export UI classes if in module context
+if (typeof module !== 'undefined' && module.exports) {
+  // For testing - export any relevant classes or functions
+  module.exports = {
+    initializeUI,
+    addTimeSeriesDataPoint,
+    clearTimeSeriesData,
+    drawPlanet
+  };
+}

@@ -1,12 +1,20 @@
 /* Daisyworld Simulation Styles */
 
-body {
-  font-family: Arial, sans-serif;
+/* Base styles */
+* {
+  box-sizing: border-box;
   margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  background-color: #f9f9f9;
+  color: #333;
+  line-height: 1.6;
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
-  background-color: #f9f9f9;
 }
 
 h1 {
@@ -15,6 +23,7 @@ h1 {
   margin-bottom: 20px;
 }
 
+/* Container layout */
 .container {
   display: flex;
   flex-wrap: wrap;
@@ -34,8 +43,13 @@ h1 {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* Control elements */
 .control-group {
   margin-bottom: 20px;
+}
+
+.control-group:last-child {
+  margin-bottom: 0;
 }
 
 .control-group label {
@@ -99,6 +113,7 @@ button:disabled {
   background: #0b7dda;
 }
 
+/* Canvas and graphs */
 canvas {
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -107,6 +122,29 @@ canvas {
   margin-bottom: 15px;
   width: 100%;
   height: auto;
+}
+
+#planet-view canvas {
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.planet-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 5px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-item span:first-child {
+  font-weight: bold;
+  margin-right: 5px;
 }
 
 #simulation-status {
