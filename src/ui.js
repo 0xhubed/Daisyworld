@@ -7,13 +7,25 @@
 import './styles.css';
 
 // Import Chart.js
-import Chart from 'chart.js/auto';
+// Use global Chart object
+const Chart = window.Chart;
 
-// Import the model
-const { DaisyworldModel, Planet, Daisy } = require('./model.js');
+// Import the model using ES modules
+import { DaisyworldModel, Planet, Daisy } from './model.js';
 
-// Create the model with default parameters
-let model = new DaisyworldModel();
+// Create the model with stable initial parameters
+let model = new DaisyworldModel({
+  solarLuminosity: 1.0,
+  bareSoilAlbedo: 0.5,
+  initialTemp: 295, // ~22°C
+  whiteDaisyInit: 0.2,
+  blackDaisyInit: 0.2,
+  whiteDaisyAlbedo: 0.75,
+  blackDaisyAlbedo: 0.25,
+  deathRate: 0.3,
+  optimalTemp: 295,
+  simulationSpeed: 0.5 // Slower speed for stability
+});
 
 // Track simulation data for graphs
 const timeSeriesData = {
@@ -27,9 +39,14 @@ const timeSeriesData = {
 // Maximum number of data points to keep in time series
 const MAX_DATA_POINTS = 100;
 
-// Canvas and context for planet visualization
-const planetCanvas = document.getElementById('planet-canvas');
-const planetCtx = planetCanvas ? planetCanvas.getContext('2d') : null;
+// Container for 3D planet visualization
+const planetContainer = document.getElementById('planet-container');
+
+// Import 3D planet renderer
+import { PlanetRenderer } from './planet-renderer.js';
+
+// 3D Planet renderer instance
+let planetRenderer = null;
 
 // Initialize charts
 let temperatureChart;
@@ -86,8 +103,29 @@ function initializeUI() {
   // Set up button event listeners
   setupEventListeners();
   
-  // Draw initial planet state
-  drawPlanet();
+  // Initialize 3D planet renderer if container exists
+  if (planetContainer) {
+    planetRenderer = new PlanetRenderer(planetContainer, model);
+  }
+  
+  // Add initial data point to charts
+  addTimeSeriesDataPoint({
+    time: 0,
+    temperature: model.getPlanetTemperature(),
+    whiteDaisyCoverage: model.getWhiteDaisyCoverage(),
+    blackDaisyCoverage: model.getBlackDaisyCoverage()
+  });
+  
+  // Update charts with initial data
+  updateCharts();
+  
+  // Update stats display with initial values
+  updateStats(
+    model.getPlanetTemperature(),
+    model.getWhiteDaisyCoverage(),
+    model.getBlackDaisyCoverage(),
+    model.getBareSoilCoverage()
+  );
   
   updateSimulationStatus('Simulation ready');
 }
@@ -125,16 +163,79 @@ function createCharts() {
     data: {
       labels: [],
       datasets: [{
-        label: 'Planet Temperature (K)',
+        label: 'Planet Temperature (°C)',
         data: [],
         borderColor: 'rgb(255, 99, 132)',
-        tension: 0.1
+        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+        borderWidth: 2,
+        pointRadius: 0, // Hide points for smoother line
+        pointHitRadius: 10, // But still allow interaction
+        fill: true,
+        tension: 0.4 // Smoother curve
       }]
     },
     options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Global Temperature Over Time',
+          font: {
+            size: 16,
+            weight: 'bold'
+          }
+        },
+        tooltip: {
+          callbacks: {
+            // Convert Kelvin to Celsius in tooltips
+            label: function(context) {
+              const tempK = context.parsed.y;
+              const tempC = (tempK - 273.15).toFixed(1);
+              return `Temperature: ${tempC}°C (${tempK.toFixed(1)}K)`;
+            }
+          }
+        },
+        legend: {
+          position: 'top'
+        },
+        // Add gradient fill
+        filler: {
+          propagate: true
+        }
+      },
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
       scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Time'
+          }
+        },
         y: {
-          beginAtZero: false
+          title: {
+            display: true,
+            text: 'Temperature (K)'
+          },
+          beginAtZero: false,
+          // Add reference lines for optimal temperature
+          grid: {
+            color: function(context) {
+              // Add a colored line at the optimal temperature (295K)
+              if (context.tick.value === 295) {
+                return 'rgba(0, 255, 0, 0.5)';
+              }
+              return 'rgba(0, 0, 0, 0.1)';
+            },
+            lineWidth: function(context) {
+              if (context.tick.value === 295) {
+                return 2;
+              }
+              return 1;
+            }
+          }
         }
       },
       animation: {
@@ -144,7 +245,7 @@ function createCharts() {
     }
   });
   
-  // Population chart
+  // Population chart - improved visualization with stacked area chart
   populationChart = new Chart(populationCtx.getContext('2d'), {
     type: 'line',
     data: {
@@ -153,34 +254,83 @@ function createCharts() {
         {
           label: 'White Daisies',
           data: [],
-          borderColor: 'rgb(200, 200, 200)',
-          backgroundColor: 'rgba(200, 200, 200, 0.5)',
-          fill: true,
-          tension: 0.1
+          borderColor: 'rgb(220, 220, 220)',
+          backgroundColor: 'rgba(220, 220, 220, 0.8)',
+          fill: 'origin',
+          tension: 0.4,
+          pointRadius: 0,
+          order: 3  // Drawing order (top layer)
         },
         {
           label: 'Black Daisies',
           data: [],
-          borderColor: 'rgb(0, 0, 0)',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          fill: true,
-          tension: 0.1
+          borderColor: 'rgb(40, 40, 40)',
+          backgroundColor: 'rgba(40, 40, 40, 0.8)',
+          fill: 'origin',
+          tension: 0.4,
+          pointRadius: 0,
+          order: 2  // Middle layer
         },
         {
           label: 'Bare Soil',
           data: [],
           borderColor: 'rgb(139, 69, 19)',
-          backgroundColor: 'rgba(139, 69, 19, 0.5)',
-          fill: true,
-          tension: 0.1
+          backgroundColor: 'rgba(139, 69, 19, 0.8)',
+          fill: 'origin',
+          tension: 0.4,
+          pointRadius: 0,
+          order: 1  // Bottom layer
         }
       ]
     },
     options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Surface Coverage Over Time',
+          font: {
+            size: 16,
+            weight: 'bold'
+          }
+        },
+        tooltip: {
+          callbacks: {
+            // Format percentages in tooltips
+            label: function(context) {
+              return `${context.dataset.label}: ${(context.parsed.y * 100).toFixed(1)}%`;
+            }
+          }
+        },
+        legend: {
+          position: 'top'
+        }
+      },
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
       scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Time'
+          }
+        },
         y: {
+          stacked: true,  // Enable stacking
+          title: {
+            display: true,
+            text: 'Coverage (%)'
+          },
           beginAtZero: true,
-          max: 1
+          max: 1,
+          ticks: {
+            // Convert decimal to percentage
+            callback: function(value) {
+              return (value * 100) + '%';
+            }
+          }
         }
       },
       animation: {
@@ -189,6 +339,32 @@ function createCharts() {
       maintainAspectRatio: false
     }
   });
+  
+  // Add a click event listener to the temperature chart for annotations
+  temperatureCtx.onclick = function(event) {
+    const points = temperatureChart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+    
+    if (points.length) {
+      const firstPoint = points[0];
+      const time = temperatureChart.data.labels[firstPoint.index];
+      const temp = temperatureChart.data.datasets[0].data[firstPoint.index];
+      
+      // Add annotation to chart
+      addChartAnnotation(time, temp);
+    }
+  };
+}
+
+/**
+ * Add an annotation to the temperature chart
+ */
+function addChartAnnotation(time, temperature) {
+  // Implementation requires Chart.js annotation plugin
+  // This is a placeholder for future enhancement
+  console.log(`Annotation added at time ${time}, temperature ${temperature}`);
+  
+  // Update status to show clicked point data
+  updateSimulationStatus(`Point selected - Time: ${time}, Temperature: ${temperature.toFixed(1)}K (${(temperature - 273.15).toFixed(1)}°C)`);
 }
 
 /**
@@ -309,6 +485,14 @@ function resetSimulation() {
   updateCharts();
   disableInitialConditionControls(false);
   
+  // Update the stats display with initial values
+  updateStats(
+    model.getPlanetTemperature(),
+    model.getWhiteDaisyCoverage(),
+    model.getBlackDaisyCoverage(),
+    model.getBareSoilCoverage()
+  );
+  
   updateSimulationStatus('Simulation reset');
 }
 
@@ -320,10 +504,23 @@ function stepSimulation() {
     // Apply any pending parameter changes
     applyParameterChanges();
     
-    model.step();
-    drawPlanet();
+    // Run a step and capture result data
+    const changes = model.step();
+    console.log("Step changes:", changes);
     
-    updateSimulationStatus('Simulation stepped');
+    // Explicitly update all visuals
+    drawPlanet();
+    updateCharts();
+    
+    // Update stats display
+    updateStats(
+      model.getPlanetTemperature(),
+      model.getWhiteDaisyCoverage(),
+      model.getBlackDaisyCoverage(),
+      model.getBareSoilCoverage()
+    );
+    
+    updateSimulationStatus(`Simulation stepped - Temperature: ${model.getPlanetTemperature().toFixed(1)}K`);
   }
 }
 
@@ -378,12 +575,21 @@ function updateSimulationStatus(message) {
  * Handle time step event from the model
  */
 function handleTimeStep(data) {
-  // Add data to time series
+  // Add data to time series and log it for debugging
+  console.log("Time step data received:", data);
   addTimeSeriesDataPoint(data);
   
   // Update visualizations
-  drawPlanet();
+  if (planetRenderer) {
+    planetRenderer.update(data);
+  }
   updateCharts();
+  
+  // Force charts to update with latest data
+  if (temperatureChart && populationChart) {
+    temperatureChart.update('none');
+    populationChart.update('none');
+  }
   
   // Update status with current temperature
   updateSimulationStatus(`Time: ${data.time}, Temperature: ${data.temperature.toFixed(1)}K`);
@@ -420,45 +626,233 @@ function clearTimeSeriesData() {
   timeSeriesData.bareSoilCoverage = [];
 }
 
-/**
- * Draw the planet visualization
- */
+// This function is no longer needed with 3D visualization
+// Kept as a stub for compatibility with exported functions
 function drawPlanet() {
-  if (!planetCtx) return;
+  // With 3D renderer, we don't need this function anymore
+  // Just update the stats display
+  updateStats(
+    model.getPlanetTemperature(),
+    model.getWhiteDaisyCoverage(),
+    model.getBlackDaisyCoverage(),
+    model.getBareSoilCoverage()
+  );
+}
+
+/**
+ * Draw background sky with sun
+ */
+function drawSky(centerX, centerY, planetRadius, solarLuminosity) {
+  // Find suitable position for the sun (top right of the canvas)
+  const sunX = planetCanvas.width - planetCanvas.width / 5;
+  const sunY = planetCanvas.height / 5;
+  const sunRadius = planetRadius / 4 * solarLuminosity;
   
-  // Get current state
-  const whiteCoverage = model.getWhiteDaisyCoverage();
-  const blackCoverage = model.getBlackDaisyCoverage();
-  const bareSoilCoverage = model.getBareSoilCoverage();
+  // Draw glowing sun with varying intensity based on luminosity
+  const sunGlow = planetCtx.createRadialGradient(
+    sunX, sunY, 0,
+    sunX, sunY, sunRadius * 2
+  );
   
-  // Clear canvas
-  planetCtx.clearRect(0, 0, planetCanvas.width, planetCanvas.height);
+  // Base color varies with luminosity
+  let sunColor;
+  if (solarLuminosity < 0.8) {
+    // Cooler, redder sun
+    sunColor = `rgb(255, ${Math.floor(165 + 90 * solarLuminosity)}, 0)`;
+  } else if (solarLuminosity > 1.2) {
+    // Hotter, whiter sun
+    sunColor = `rgb(255, 255, ${Math.floor(200 + 55 * (solarLuminosity - 1.2))})`;
+  } else {
+    // Normal yellow sun
+    sunColor = 'rgb(255, 255, 0)';
+  }
   
-  // Draw planet as a circle
-  const centerX = planetCanvas.width / 2;
-  const centerY = planetCanvas.height / 2;
-  const radius = Math.min(planetCanvas.width, planetCanvas.height) / 2.5;
+  sunGlow.addColorStop(0, sunColor);
+  sunGlow.addColorStop(0.7, 'rgba(255, 255, 0, 0.3)');
+  sunGlow.addColorStop(1, 'rgba(255, 255, 0, 0)');
   
-  // Draw segments for each surface type
-  drawPlanetSegments(centerX, centerY, radius, [
-    { portion: bareSoilCoverage, color: '#8B4513' }, // Brown for bare soil
-    { portion: whiteCoverage, color: '#E0E0E0' },    // Light gray for white daisies
-    { portion: blackCoverage, color: '#202020' }     // Dark gray for black daisies
-  ]);
+  planetCtx.fillStyle = sunGlow;
+  planetCtx.beginPath();
+  planetCtx.arc(sunX, sunY, sunRadius * 2, 0, Math.PI * 2);
+  planetCtx.fill();
   
-  // Add temperature indicator
-  const temp = model.getPlanetTemperature();
+  // Draw solid sun
+  planetCtx.fillStyle = sunColor;
+  planetCtx.beginPath();
+  planetCtx.arc(sunX, sunY, sunRadius, 0, Math.PI * 2);
+  planetCtx.fill();
+  
+  // Draw sun rays
+  const rays = 12;
+  const rayLength = sunRadius * 1.5;
+  
+  planetCtx.strokeStyle = sunColor;
+  planetCtx.lineWidth = 2;
+  
+  for (let i = 0; i < rays; i++) {
+    const angle = (i / rays) * Math.PI * 2;
+    const startX = sunX + Math.cos(angle) * sunRadius;
+    const startY = sunY + Math.sin(angle) * sunRadius;
+    const endX = sunX + Math.cos(angle) * (sunRadius + rayLength);
+    const endY = sunY + Math.sin(angle) * (sunRadius + rayLength);
+    
+    planetCtx.beginPath();
+    planetCtx.moveTo(startX, startY);
+    planetCtx.lineTo(endX, endY);
+    planetCtx.stroke();
+  }
+}
+
+/**
+ * Draw a realistic pattern of daisies on the planet
+ */
+function drawDaisyPattern(centerX, centerY, radius, whiteCoverage, blackCoverage, bareSoilCoverage, patternSize) {
+  // Create a grid of points within the planet circle
+  const grid = [];
+  const gridSize = radius * 2 / patternSize;
+  
+  // Calculate probabilities
+  const total = whiteCoverage + blackCoverage + bareSoilCoverage;
+  const whiteProb = whiteCoverage / total;
+  const blackProb = blackCoverage / total;
+  
+  // Generate grid points
+  for (let x = centerX - radius; x < centerX + radius; x += patternSize) {
+    for (let y = centerY - radius; y < centerY + radius; y += patternSize) {
+      // Check if point is within the circle
+      const dx = x - centerX;
+      const dy = y - centerY;
+      if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+        // Add some randomization to grid positions for natural appearance
+        const jitterX = (Math.random() - 0.5) * patternSize * 0.5;
+        const jitterY = (Math.random() - 0.5) * patternSize * 0.5;
+        
+        grid.push({
+          x: x + jitterX,
+          y: y + jitterY,
+          size: patternSize * (0.7 + Math.random() * 0.6)
+        });
+      }
+    }
+  }
+  
+  // Draw base soil
+  planetCtx.fillStyle = '#8B4513';  // Brown soil
+  planetCtx.beginPath();
+  planetCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  planetCtx.fill();
+  
+  // Draw daisies on the grid
+  grid.forEach(point => {
+    const random = Math.random();
+    
+    if (random < whiteProb) {
+      // Draw white daisy
+      drawDaisy(point.x, point.y, point.size / 2, '#FFFFFF');
+    } else if (random < whiteProb + blackProb) {
+      // Draw black daisy
+      drawDaisy(point.x, point.y, point.size / 2, '#202020');
+    }
+    // Otherwise, leave as bare soil
+  });
+  
+  // Draw planet outline
+  planetCtx.beginPath();
+  planetCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  planetCtx.strokeStyle = '#333';
+  planetCtx.lineWidth = 2;
+  planetCtx.stroke();
+}
+
+/**
+ * Draw a daisy flower
+ */
+function drawDaisy(x, y, size, petalColor) {
+  const petalCount = 8; // Number of petals
+  
+  // Draw petals
+  planetCtx.fillStyle = petalColor;
+  
+  for (let i = 0; i < petalCount; i++) {
+    const angle = (i / petalCount) * Math.PI * 2;
+    const petalX = x + Math.cos(angle) * size * 0.7;
+    const petalY = y + Math.sin(angle) * size * 0.7;
+    
+    planetCtx.beginPath();
+    planetCtx.ellipse(
+      petalX, petalY,
+      size / 2, size / 3,
+      angle,
+      0, Math.PI * 2
+    );
+    planetCtx.fill();
+  }
+  
+  // Draw center of daisy
+  planetCtx.fillStyle = '#FFDD00';  // Yellow center
+  planetCtx.beginPath();
+  planetCtx.arc(x, y, size / 3, 0, Math.PI * 2);
+  planetCtx.fill();
+}
+
+/**
+ * Draw atmosphere effect
+ */
+function drawAtmosphere(centerX, centerY, radius) {
+  // Create a soft glow for atmosphere
+  const atmosphere = planetCtx.createRadialGradient(
+    centerX, centerY, radius * 0.95,
+    centerX, centerY, radius * 1.1
+  );
+  
+  atmosphere.addColorStop(0, 'rgba(180, 220, 255, 0.3)');
+  atmosphere.addColorStop(1, 'rgba(180, 220, 255, 0)');
+  
+  planetCtx.fillStyle = atmosphere;
+  planetCtx.beginPath();
+  planetCtx.arc(centerX, centerY, radius * 1.1, 0, Math.PI * 2);
+  planetCtx.fill();
+}
+
+/**
+ * Draw temperature scale
+ */
+function drawTemperatureScale(temperature, x, y) {
+  const tempC = temperature - 273.15;
+  const width = 200;
+  const height = 20;
+  
+  // Draw gradient background
+  const gradient = planetCtx.createLinearGradient(x - width/2, y, x + width/2, y);
+  gradient.addColorStop(0, '#0000FF');   // Cold (blue)
+  gradient.addColorStop(0.5, '#00FF00'); // Optimal (green)
+  gradient.addColorStop(1, '#FF0000');   // Hot (red)
+  
+  planetCtx.fillStyle = gradient;
+  planetCtx.fillRect(x - width/2, y, width, height);
+  
+  // Draw border
+  planetCtx.strokeStyle = '#333';
+  planetCtx.lineWidth = 1;
+  planetCtx.strokeRect(x - width/2, y, width, height);
+  
+  // Draw temperature indicator
+  const normalizedTemp = Math.max(0, Math.min(1, (tempC + 20) / 60)); // -20°C to 40°C
+  const markerX = x - width/2 + width * normalizedTemp;
+  
+  planetCtx.fillStyle = '#FFF';
+  planetCtx.beginPath();
+  planetCtx.moveTo(markerX, y - 5);
+  planetCtx.lineTo(markerX + 5, y);
+  planetCtx.lineTo(markerX - 5, y);
+  planetCtx.closePath();
+  planetCtx.fill();
+  
+  // Draw temperature text
   planetCtx.fillStyle = '#000';
-  planetCtx.font = '14px Arial';
+  planetCtx.font = '12px Arial';
   planetCtx.textAlign = 'center';
-  planetCtx.fillText(`Temperature: ${temp.toFixed(1)}K`, centerX, centerY + radius + 30);
-  
-  // Add luminosity indicator
-  const luminosity = model.getSolarLuminosity();
-  planetCtx.fillText(`Solar Luminosity: ${luminosity.toFixed(2)}`, centerX, centerY + radius + 50);
-  
-  // Update stats display if it exists in the DOM
-  updateStats(temp, whiteCoverage, blackCoverage, bareSoilCoverage);
+  planetCtx.fillText(`${tempC.toFixed(1)}°C (${temperature.toFixed(1)}K)`, x, y + height + 15);
 }
 
 /**
@@ -658,13 +1052,10 @@ function loadBlackDominantPreset() {
 // Initialize UI when DOM is fully loaded
 document.addEventListener('DOMContentLoaded', initializeUI);
 
-// Export UI classes if in module context
-if (typeof module !== 'undefined' && module.exports) {
-  // For testing - export any relevant classes or functions
-  module.exports = {
-    initializeUI,
-    addTimeSeriesDataPoint,
-    clearTimeSeriesData,
-    drawPlanet
-  };
-}
+// Export UI functions for testing
+export {
+  initializeUI,
+  addTimeSeriesDataPoint, 
+  clearTimeSeriesData,
+  drawPlanet
+};
