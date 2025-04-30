@@ -48,7 +48,7 @@ import { PlanetRenderer } from './planet-renderer.js';
 // 3D Planet renderer instance
 let planetRenderer = null;
 
-// Initialize charts
+// Initialize chart variables (not used in this version)
 let temperatureChart;
 let populationChart;
 
@@ -97,8 +97,8 @@ function initializeUI() {
   // Initialize model event listeners
   model.onTimeStep(handleTimeStep);
   
-  // Create charts
-  createCharts();
+  // Charts are no longer used in this version
+  // createCharts();
   
   // Set up button event listeners
   setupEventListeners();
@@ -116,8 +116,8 @@ function initializeUI() {
     blackDaisyCoverage: model.getBlackDaisyCoverage()
   });
   
-  // Update charts with initial data
-  updateCharts();
+  // Charts are no longer used in this version
+  // updateCharts();
   
   // Update stats display with initial values
   updateStats(
@@ -482,7 +482,7 @@ function resetSimulation() {
   
   // Update UI
   drawPlanet();
-  updateCharts();
+  // updateCharts(); // Charts removed in this version
   disableInitialConditionControls(false);
   
   // Update the stats display with initial values
@@ -510,7 +510,7 @@ function stepSimulation() {
     
     // Explicitly update all visuals
     drawPlanet();
-    updateCharts();
+    // updateCharts(); // Charts removed in this version
     
     // Update stats display
     updateStats(
@@ -579,16 +579,9 @@ function handleTimeStep(data) {
   console.log("Time step data received:", data);
   addTimeSeriesDataPoint(data);
   
-  // Update visualizations
+  // Update 3D visualization
   if (planetRenderer) {
     planetRenderer.update(data);
-  }
-  updateCharts();
-  
-  // Force charts to update with latest data
-  if (temperatureChart && populationChart) {
-    temperatureChart.update('none');
-    populationChart.update('none');
   }
   
   // Update status with current temperature
