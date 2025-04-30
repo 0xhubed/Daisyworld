@@ -47,7 +47,8 @@ class Planet {
     this.bareSoilAlbedo = bareSoilAlbedo;
     this.temperature = initialTemp;
     this.solarLuminosity = 1.0;
-    this.stefanBoltzmann = 5.67e-8; // W/m²K⁴
+    // Stefan-Boltzmann constant - using original value
+    this.stefanBoltzmann = 5.67e-8; 
     this.albedo = bareSoilAlbedo;
   }
   
@@ -83,14 +84,24 @@ class Planet {
    * Calculate temperature based on Stefan-Boltzmann law and current albedo
    */
   calculateTemperature() {
-    // Solar constant (adjusted by luminosity)
-    const solarConstant = 1368 * this.solarLuminosity; // W/m²
+    // Solar constant for Earth-like temperatures
+    const solarConstant = 1368 * this.solarLuminosity; // W/m² (standard solar constant)
     
     // Calculate absorbed radiation (accounting for albedo reflection)
     const absorbedRadiation = solarConstant * (1 - this.albedo) / 4;
     
     // Calculate temperature using Stefan-Boltzmann law: σT⁴ = absorbed radiation
     const temperatureK = Math.pow(absorbedRadiation / this.stefanBoltzmann, 0.25);
+    
+    // Log the calculation for debugging
+    console.log(`Temperature calculation: Solar constant=${solarConstant}, Albedo=${this.albedo}, Absorbed radiation=${absorbedRadiation}, Temperature=${temperatureK}K (${temperatureK - 273.15}°C)`);
+    
+    // Add a sanity check to prevent extreme temperatures
+    if (temperatureK < 100 || temperatureK > 400) {
+      console.warn(`Temperature out of expected range: ${temperatureK}K`);
+      // Return a default temperature in the valid range
+      return 295; // ~22°C
+    }
     
     return temperatureK;
   }
@@ -140,21 +151,27 @@ class DaisyworldModel {
     // Growth model parameters
     this.deathRate = deathRate;
     this.optimalTemp = optimalTemp;
-    this.simulationSpeed = simulationSpeed;
+    this.simulationSpeed = Math.min(0.5, simulationSpeed); // Limit initial speed for stability
     this.running = false;
     this.time = 0;
     
-    // Growth parameters
-    this.maxGrowthRate = 1.0;
+    // Growth parameters - adjust for better stability
+    this.maxGrowthRate = 0.8; // Reduced from 1.0 for stability
     this.minGrowthTemp = 5.0; // 5 degrees below optimal is minimum temp for growth
     this.maxGrowthTemp = 40.0; // 40 degrees above optimal is maximum temp for growth
     
-    // Enhance regulation effect for testing
-    this.temperatureRegulationFactor = 4.0; // Amplify the feedback effect
+    // Regulate temperature effect for better stability
+    this.temperatureRegulationFactor = 2.0; // Reduced from 4.0 to avoid extreme swings
     
-    // Initialize albedo and temperature
+    // Initialize model state
     this.updatePlanetAlbedo();
-    this.updatePlanetTemperature();
+    console.log(`Initial planet albedo: ${this.planet.getAlbedo()}`);
+    
+    // Force initial temperature to be the specified value
+    this.planet.setTemperature(initialTemp);
+    console.log(`Initial temperature forced to: ${initialTemp}K (${initialTemp - 273.15}°C)`);
+    
+    // Calculate local temperatures based on this initial temperature
     this.updateLocalTemperatures();
     
     // Setup event handling
@@ -245,6 +262,7 @@ class DaisyworldModel {
   updatePlanetTemperature() {
     const newTemp = this.planet.calculateTemperature();
     this.planet.setTemperature(newTemp);
+    console.log(`Planet temperature updated to ${newTemp}K (${newTemp - 273.15}°C)`);
     return newTemp;
   }
   
@@ -284,12 +302,14 @@ class DaisyworldModel {
       return 0;
     }
     
-    // Parabolic growth function with steeper dropoff further from optimal
-    // The exponent makes the curve steeper away from the optimal point
-    const k = 1 / Math.pow(Math.max(this.minGrowthTemp, this.maxGrowthTemp), 2);
-    const exponent = 1 + (diff / 10); // Increase exponent as we move away from optimal
+    // Use a simpler, more stable parabolic function for growth
+    // 1 - (diff/range)² gives a more gradual falloff
+    const range = Math.max(this.minGrowthTemp, this.maxGrowthTemp);
+    const normalizedDiff = diff / range;
     
-    return Math.max(0, this.maxGrowthRate * (1 - k * Math.pow(diff, exponent)));
+    // This gives maximum growth (1.0) at optimal temperature,
+    // and gradually decreases to 0 at the edges of the viable range
+    return Math.max(0, this.maxGrowthRate * (1 - Math.pow(normalizedDiff, 1.8)));
   }
   
   /**
@@ -301,36 +321,66 @@ class DaisyworldModel {
     const localTemp = daisy.getLocalTemp();
     let growthRate = this.calculateDaisyGrowthRate(localTemp);
     
-    // Apply temperature preference modifier
+    // Apply temperature preference modifier with more gradual effect
     // White daisies prefer cooler temperatures, black daisies prefer warmer temperatures
-    // This enhances the regulatory effect
     if (daisy.getType() === 'white') {
       // White daisies get a growth boost in hotter environments
       const planetTemp = this.planet.getTemperature();
       if (planetTemp > this.optimalTemp) {
-        growthRate *= 1.5; // Boost for white daisies in warm conditions
+        // More gradual boost with temperature difference
+        const tempDiff = Math.min(20, planetTemp - this.optimalTemp);
+        growthRate *= (1 + (tempDiff / 20)); // Max 2x boost gradually applied
       } else if (planetTemp < this.optimalTemp - 10) {
-        growthRate *= 0.5; // Penalty for white daisies in cold conditions
+        // More gradual penalty
+        const tempDiff = Math.min(20, this.optimalTemp - 10 - planetTemp);
+        growthRate *= (1 - (tempDiff / 40)); // Min 0.5x penalty gradually applied
       }
     } else if (daisy.getType() === 'black') {
       // Black daisies get a growth boost in colder environments
       const planetTemp = this.planet.getTemperature();
       if (planetTemp < this.optimalTemp) {
-        growthRate *= 1.5; // Boost for black daisies in cool conditions
+        // More gradual boost with temperature difference
+        const tempDiff = Math.min(20, this.optimalTemp - planetTemp);
+        growthRate *= (1 + (tempDiff / 20)); // Max 2x boost gradually applied
       } else if (planetTemp > this.optimalTemp + 10) {
-        growthRate *= 0.5; // Penalty for black daisies in hot conditions
+        // More gradual penalty
+        const tempDiff = Math.min(20, planetTemp - (this.optimalTemp + 10));
+        growthRate *= (1 - (tempDiff / 40)); // Min 0.5x penalty gradually applied
       }
+    }
+    
+    // Ensure small populations can still grow - add a minimum growth factor
+    // This ensures daisies don't completely die out
+    if (currentCoverage < 0.05 && growthRate > 0) {
+      // Add a small boost for very low populations to prevent extinction
+      growthRate *= (1 + (0.05 - currentCoverage) * 10);
     }
     
     // Calculate new growth: growth rate * current coverage * available area
     const availableArea = this.getBareSoilCoverage();
     const newGrowth = growthRate * currentCoverage * availableArea;
     
-    // Calculate deaths: death rate * current coverage
-    const deaths = this.deathRate * currentCoverage;
+    // Calculate deaths with a minimum guaranteed survival rate
+    // This prevents complete extinction
+    const survivalFactor = Math.max(0.7, 1 - this.deathRate); // At least 70% survival
+    const deaths = (1 - survivalFactor) * currentCoverage;
     
-    // Update coverage
-    const newCoverage = currentCoverage + newGrowth - deaths;
+    // Update coverage with limits to prevent extreme changes in a single step
+    let newCoverage = currentCoverage + newGrowth - deaths;
+    
+    // Limit maximum change per step for stability
+    const maxChangePerStep = 0.05;
+    if (newCoverage > currentCoverage + maxChangePerStep) {
+      newCoverage = currentCoverage + maxChangePerStep;
+    } else if (newCoverage < currentCoverage - maxChangePerStep) {
+      newCoverage = currentCoverage - maxChangePerStep;
+    }
+    
+    // Ensure a minimum population if there was any to begin with
+    if (currentCoverage > 0 && newCoverage < 0.01) {
+      newCoverage = 0.01; // Minimum 1% coverage if population existed
+    }
+    
     daisy.setCoverage(newCoverage);
   }
   
@@ -419,9 +469,16 @@ class DaisyworldModel {
     this.maxGrowthTemp = newModel.maxGrowthTemp;
     this.temperatureRegulationFactor = newModel.temperatureRegulationFactor;
     
-    // Initialize state
+    // Initialize state with the same pattern as constructor
     this.updatePlanetAlbedo();
-    this.updatePlanetTemperature();
+    console.log(`Reset: planet albedo: ${this.planet.getAlbedo()}`);
+    
+    // Force initial temperature to the optimal value
+    const initialTemp = params.initialTemp || this.optimalTemp;
+    this.planet.setTemperature(initialTemp);
+    console.log(`Reset: temperature forced to: ${initialTemp}K (${initialTemp - 273.15}°C)`);
+    
+    // Calculate local temperatures
     this.updateLocalTemperatures();
     
     // Keep existing callbacks
@@ -433,16 +490,25 @@ class DaisyworldModel {
   simulationLoop() {
     if (!this.running) return;
     
-    // Run simulation at specified speed
-    const stepsPerFrame = this.simulationSpeed;
+    // Run simulation at specified speed, but limit it to avoid instability
+    // For fractional speeds below 1.0, we'll use a probability approach
+    const stepsPerFrame = Math.floor(this.simulationSpeed);
+    const fractionalPart = this.simulationSpeed - stepsPerFrame;
     
-    // Run the appropriate number of steps
+    // Always do the whole steps
     for (let i = 0; i < stepsPerFrame; i++) {
       this.step();
     }
     
-    // Schedule next frame
-    this.animationFrame = requestAnimationFrame(() => this.simulationLoop());
+    // Do one more step with probability equal to the fractional part
+    if (Math.random() < fractionalPart) {
+      this.step();
+    }
+    
+    // Schedule next frame with a slight delay for very fast speeds to allow UI updates
+    setTimeout(() => {
+      this.animationFrame = requestAnimationFrame(() => this.simulationLoop());
+    }, this.simulationSpeed > 3 ? 16 : 0); // Add a small delay for high speeds
   }
   
   /**
