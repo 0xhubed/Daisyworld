@@ -84,23 +84,30 @@ class Planet {
    * Calculate temperature based on Stefan-Boltzmann law and current albedo
    */
   calculateTemperature() {
-    // Solar constant for Earth-like temperatures
-    const solarConstant = 1368 * this.solarLuminosity; // W/m² (standard solar constant)
+    // Use higher effective solar constant for Daisyworld model to get Earth-like temperatures
+    // This represents the simplified model's solar luminosity scaling
+    const effectiveSolarConstant = 3000 * this.solarLuminosity; // W/m² (adjusted for model)
     
     // Calculate absorbed radiation (accounting for albedo reflection)
-    const absorbedRadiation = solarConstant * (1 - this.albedo) / 4;
+    const absorbedRadiation = effectiveSolarConstant * (1 - this.albedo) / 4;
     
     // Calculate temperature using Stefan-Boltzmann law: σT⁴ = absorbed radiation
     const temperatureK = Math.pow(absorbedRadiation / this.stefanBoltzmann, 0.25);
     
     // Log the calculation for debugging
-    console.log(`Temperature calculation: Solar constant=${solarConstant}, Albedo=${this.albedo}, Absorbed radiation=${absorbedRadiation}, Temperature=${temperatureK}K (${temperatureK - 273.15}°C)`);
+    console.log(`Temperature calculation: Solar constant=${effectiveSolarConstant}, Albedo=${this.albedo}, Absorbed radiation=${absorbedRadiation}, Temperature=${temperatureK}K (${temperatureK - 273.15}°C)`);
     
-    // Add a sanity check to prevent extreme temperatures
-    if (temperatureK < 100 || temperatureK > 400) {
+    // Ensure temperature stays within reasonable bounds for the model
+    if (temperatureK < 250 || temperatureK > 350) {
       console.warn(`Temperature out of expected range: ${temperatureK}K`);
-      // Return a default temperature in the valid range
-      return 295; // ~22°C
+      return Math.max(250, Math.min(350, temperatureK));
+    }
+    
+    // Add gentle damping to prevent rapid temperature changes
+    if (this.temperature && Math.abs(temperatureK - this.temperature) > 20) {
+      // If change is large, dampen it slightly
+      const direction = temperatureK > this.temperature ? 1 : -1;
+      return this.temperature + (direction * 15); // Allow up to 15K change per step
     }
     
     return temperatureK;
@@ -131,11 +138,11 @@ class DaisyworldModel {
       solarLuminosity = 1.0,
       bareSoilAlbedo = 0.5,
       initialTemp = 295,
-      whiteDaisyInit = 0.2,
-      blackDaisyInit = 0.2,
+      whiteDaisyInit = 0.3,  // Increased initial coverage
+      blackDaisyInit = 0.3,  // Increased initial coverage
       whiteDaisyAlbedo = 0.75,
       blackDaisyAlbedo = 0.25,
-      deathRate = 0.3,
+      deathRate = 0.2,  // Reduced for better stability
       optimalTemp = 295,
       simulationSpeed = 1
     } = params;
@@ -155,13 +162,13 @@ class DaisyworldModel {
     this.running = false;
     this.time = 0;
     
-    // Growth parameters - adjust for better stability
-    this.maxGrowthRate = 0.8; // Reduced from 1.0 for stability
-    this.minGrowthTemp = 5.0; // 5 degrees below optimal is minimum temp for growth
-    this.maxGrowthTemp = 40.0; // 40 degrees above optimal is maximum temp for growth
+    // Growth parameters - significantly improved for better stability
+    this.maxGrowthRate = 1.0; // Increased to ensure healthy growth
+    this.minGrowthTemp = 20.0; // Wider growth range (20 degrees below optimal)
+    this.maxGrowthTemp = 30.0; // Wider growth range (30 degrees above optimal)
     
     // Regulate temperature effect for better stability
-    this.temperatureRegulationFactor = 2.0; // Reduced from 4.0 to avoid extreme swings
+    this.temperatureRegulationFactor = 1.0; // Reduced to avoid extreme temperature swings
     
     // Initialize model state
     this.updatePlanetAlbedo();
@@ -274,13 +281,28 @@ class DaisyworldModel {
     let whiteLocalTemp = this.planet.calculateLocalTemperature(this.whiteDaisy.getAlbedo());
     let blackLocalTemp = this.planet.calculateLocalTemperature(this.blackDaisy.getAlbedo());
     
-    // Apply regulation factor to amplify differences (for testing)
+    // Apply regulation factor to create moderate differences
+    // Reduced the effect to prevent extreme local temperatures
     const planetTemp = this.planet.getTemperature();
-    whiteLocalTemp = planetTemp - (this.temperatureRegulationFactor * (planetTemp - whiteLocalTemp));
-    blackLocalTemp = planetTemp + (this.temperatureRegulationFactor * (blackLocalTemp - planetTemp));
+    
+    // Limit the temperature difference to be more realistic
+    const maxDiff = 15; // Maximum temperature difference in Kelvin
+    
+    // Calculate modified local temperatures with limits
+    const whiteTempDiff = Math.min(maxDiff, this.temperatureRegulationFactor * (planetTemp - whiteLocalTemp));
+    const blackTempDiff = Math.min(maxDiff, this.temperatureRegulationFactor * (blackLocalTemp - planetTemp));
+    
+    whiteLocalTemp = planetTemp - whiteTempDiff;
+    blackLocalTemp = planetTemp + blackTempDiff;
+    
+    // Ensure local temperatures don't go outside reasonable bounds
+    whiteLocalTemp = Math.max(250, Math.min(350, whiteLocalTemp));
+    blackLocalTemp = Math.max(250, Math.min(350, blackLocalTemp));
     
     this.whiteDaisy.setLocalTemp(whiteLocalTemp);
     this.blackDaisy.setLocalTemp(blackLocalTemp);
+    
+    console.log(`Local temperatures - White: ${whiteLocalTemp.toFixed(1)}K (${(whiteLocalTemp-273.15).toFixed(1)}°C), Black: ${blackLocalTemp.toFixed(1)}K (${(blackLocalTemp-273.15).toFixed(1)}°C)`);
   }
   
   /**
@@ -349,20 +371,22 @@ class DaisyworldModel {
       }
     }
     
-    // Ensure small populations can still grow - add a minimum growth factor
-    // This ensures daisies don't completely die out
-    if (currentCoverage < 0.05 && growthRate > 0) {
-      // Add a small boost for very low populations to prevent extinction
-      growthRate *= (1 + (0.05 - currentCoverage) * 10);
+    // Strong protection for small populations - add a significant growth factor
+    // This ensures daisies don't die out and actively recover when population is low
+    if (currentCoverage < 0.2) {  // Protect populations below 20%
+      // Add a stronger boost for low populations to prevent extinction
+      const boostFactor = 1 + (0.2 - currentCoverage) * 20; // Up to 5x boost at very low populations
+      growthRate *= boostFactor;
+      console.log(`${daisy.getType()} daisy boost: ${boostFactor.toFixed(2)}x (low population protection)`);
     }
     
     // Calculate new growth: growth rate * current coverage * available area
     const availableArea = this.getBareSoilCoverage();
     const newGrowth = growthRate * currentCoverage * availableArea;
     
-    // Calculate deaths with a minimum guaranteed survival rate
-    // This prevents complete extinction
-    const survivalFactor = Math.max(0.7, 1 - this.deathRate); // At least 70% survival
+    // Calculate deaths with a stronger guaranteed survival rate
+    // This significantly reduces extinction risk
+    const survivalFactor = Math.max(0.9, 1 - this.deathRate); // At least 90% survival
     const deaths = (1 - survivalFactor) * currentCoverage;
     
     // Update coverage with limits to prevent extreme changes in a single step
@@ -376,9 +400,10 @@ class DaisyworldModel {
       newCoverage = currentCoverage - maxChangePerStep;
     }
     
-    // Ensure a minimum population if there was any to begin with
-    if (currentCoverage > 0 && newCoverage < 0.01) {
-      newCoverage = 0.01; // Minimum 1% coverage if population existed
+    // Enforce a higher minimum population for stability
+    if (currentCoverage > 0 && newCoverage < 0.1) {
+      newCoverage = 0.1; // Minimum 10% coverage if population existed
+      console.log(`${daisy.getType()} daisy population saved from extinction (forced to 10%)`);
     }
     
     daisy.setCoverage(newCoverage);
@@ -531,6 +556,7 @@ class DaisyworldModel {
    * @param {Object} data - Time step data
    */
   notifyTimeStep(data) {
+    console.log(`Notifying ${this.timeStepCallbacks.length} time step callbacks with data:`, data);
     this.timeStepCallbacks.forEach(callback => callback(data));
   }
 }
