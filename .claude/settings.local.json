@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(git add:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git init:*)",
+      "Bash(git merge:*)",
+      "Bash(git pull:*)",
+      "Bash(git push:*)",
+      "Bash(git remote add:*)",
+      "Bash(git stash:*)",
+      "Bash(git worktree:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run start:*)",
+      "Bash(npm test:*)",
+      "Bash(pkill:*)",
+      "Bash(rm:*)",
+      "Bash(touch:*)",
+      "Bash(true)",
+      "Bash(node:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": false
+}

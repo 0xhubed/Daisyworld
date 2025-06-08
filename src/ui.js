@@ -13,18 +13,18 @@ const Chart = window.Chart;
 // Import the model using ES modules
 import { DaisyworldModel, Planet, Daisy } from './model.js';
 
-// Create the model with stable initial parameters
+// Create the model with guaranteed stable parameters
 let model = new DaisyworldModel({
   solarLuminosity: 1.0,
   bareSoilAlbedo: 0.5,
   initialTemp: 295, // ~22°C
-  whiteDaisyInit: 0.2,
-  blackDaisyInit: 0.2,
+  whiteDaisyInit: 0.4,  // Higher initial coverage
+  blackDaisyInit: 0.4,  // Higher initial coverage
   whiteDaisyAlbedo: 0.75,
   blackDaisyAlbedo: 0.25,
-  deathRate: 0.3,
+  deathRate: 0.1,  // Very low death rate for guaranteed stability
   optimalTemp: 295,
-  simulationSpeed: 0.5 // Slower speed for stability
+  simulationSpeed: 0.3 // Slower speed for stability
 });
 
 // Track simulation data for graphs
@@ -48,7 +48,7 @@ import { PlanetRenderer } from './planet-renderer.js';
 // 3D Planet renderer instance
 let planetRenderer = null;
 
-// Initialize charts
+// Initialize chart variables (not used in this version)
 let temperatureChart;
 let populationChart;
 
@@ -96,9 +96,10 @@ function initializeUI() {
   
   // Initialize model event listeners
   model.onTimeStep(handleTimeStep);
+  console.log("Model time step handler registered");
   
-  // Create charts
-  createCharts();
+  // Charts are no longer used in this version
+  // createCharts();
   
   // Set up button event listeners
   setupEventListeners();
@@ -116,8 +117,8 @@ function initializeUI() {
     blackDaisyCoverage: model.getBlackDaisyCoverage()
   });
   
-  // Update charts with initial data
-  updateCharts();
+  // Charts are no longer used in this version
+  // updateCharts();
   
   // Update stats display with initial values
   updateStats(
@@ -482,7 +483,7 @@ function resetSimulation() {
   
   // Update UI
   drawPlanet();
-  updateCharts();
+  // updateCharts(); // Charts removed in this version
   disableInitialConditionControls(false);
   
   // Update the stats display with initial values
@@ -510,7 +511,7 @@ function stepSimulation() {
     
     // Explicitly update all visuals
     drawPlanet();
-    updateCharts();
+    // updateCharts(); // Charts removed in this version
     
     // Update stats display
     updateStats(
@@ -579,17 +580,18 @@ function handleTimeStep(data) {
   console.log("Time step data received:", data);
   addTimeSeriesDataPoint(data);
   
-  // Update visualizations
+  // Update 3D visualization
   if (planetRenderer) {
     planetRenderer.update(data);
   }
-  updateCharts();
   
-  // Force charts to update with latest data
-  if (temperatureChart && populationChart) {
-    temperatureChart.update('none');
-    populationChart.update('none');
-  }
+  // Update stats display with current values
+  updateStats(
+    data.temperature,
+    data.whiteDaisyCoverage, 
+    data.blackDaisyCoverage,
+    1 - data.whiteDaisyCoverage - data.blackDaisyCoverage
+  );
   
   // Update status with current temperature
   updateSimulationStatus(`Time: ${data.time}, Temperature: ${data.temperature.toFixed(1)}K`);
@@ -864,20 +866,35 @@ function updateStats(temperature, whiteCoverage, blackCoverage, bareSoilCoverage
   const blackDaisyElement = document.getElementById('black-daisy-value');
   const bareSoilElement = document.getElementById('bare-soil-value');
   
+  console.log("Updating stats display:", {
+    temperature: temperature,
+    white: whiteCoverage,
+    black: blackCoverage,
+    bare: bareSoilCoverage
+  });
+  
   if (temperatureElement) {
     temperatureElement.textContent = `${(temperature - 273.15).toFixed(1)}°C`;
+  } else {
+    console.warn("Temperature element not found");
   }
   
   if (whiteDaisyElement) {
     whiteDaisyElement.textContent = `${(whiteCoverage * 100).toFixed(1)}%`;
+  } else {
+    console.warn("White daisy element not found");
   }
   
   if (blackDaisyElement) {
     blackDaisyElement.textContent = `${(blackCoverage * 100).toFixed(1)}%`;
+  } else {
+    console.warn("Black daisy element not found");
   }
   
   if (bareSoilElement) {
     bareSoilElement.textContent = `${(bareSoilCoverage * 100).toFixed(1)}%`;
+  } else {
+    console.warn("Bare soil element not found");
   }
 }
 
@@ -939,17 +956,26 @@ function loadStablePreset() {
     pauseSimulation();
   }
   
-  // Set parameters for stable system
+  // Set parameters for guaranteed stable system
   solarLuminositySlider.value = 1.0;
-  whiteDaisyCoverageSlider.value = 0.2;
-  blackDaisyCoverageSlider.value = 0.2;
-  deathRateSlider.value = 0.3;
+  whiteDaisyCoverageSlider.value = 0.4;  // Higher initial coverage
+  blackDaisyCoverageSlider.value = 0.4;  // Higher initial coverage
+  deathRateSlider.value = 0.1;  // Very low death rate for guaranteed stability
   
   // Update displays
   updateSliderDisplays();
   
   // Reset simulation with these parameters
   resetSimulation();
+  
+  // Force reset with guaranteed stable parameters
+  model.reset({
+    solarLuminosity: 1.0,
+    whiteDaisyInit: 0.4,
+    blackDaisyInit: 0.4,
+    deathRate: 0.1,
+    initialTemp: 295  // ~22°C - optimal temperature
+  });
   
   updateSimulationStatus('Loaded stable state preset');
 }
