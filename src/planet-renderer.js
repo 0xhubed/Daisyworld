@@ -210,14 +210,20 @@ export class PlanetRenderer {
     this.planetCtx.fillStyle = '#8B4513';  // Brown soil
     this.planetCtx.fillRect(0, 0, this.planetCanvas.width, this.planetCanvas.height);
     
-    // Get current model data
+    // Get current model data - get fresh data each time
     const whiteCoverage = this.model.getWhiteDaisyCoverage();
     const blackCoverage = this.model.getBlackDaisyCoverage();
+    
+    console.log('Updating planet texture with:', {
+      white: whiteCoverage,
+      black: blackCoverage,
+      bare: 1 - whiteCoverage - blackCoverage
+    });
     
     // Draw daisies with point distribution
     this.drawDaisyDistribution(whiteCoverage, blackCoverage);
     
-    // Update texture needs
+    // Always force texture update
     if (this.planetTexture) {
       this.planetTexture.needsUpdate = true;
     }
@@ -393,5 +399,10 @@ export class PlanetRenderer {
     
     // Update atmosphere based on temperature
     this.updateAtmosphere(this.model.getPlanetTemperature());
+    
+    // Force the texture to update
+    if (this.planetTexture) {
+      this.planetTexture.needsUpdate = true;
+    }
   }
 }

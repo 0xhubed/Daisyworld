@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daisyworld Simulation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    
+    p {
+      text-align: center;
+      color: #666;
+    }
+    
+    .main-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 30px;
+    }
+    
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      width: 100%;
+      margin: 20px 0;
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-label {
+      font-weight: bold;
+      margin-right: 5px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 500px;
+      margin: 20px 0;
+    }
+    
+    .buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    
+    button {
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    button:hover {
+      background-color: #45a049;
+    }
+    
+    .slider-container {
+      margin: 10px 0;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+    }
+    
+    .planet-container {
+      width: 300px;
+      height: 300px;
+      position: relative;
+      margin: 0 auto;
+    }
+    
+    #planet-canvas {
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>Daisyworld Simulation</h1>
+  <p>A model of planetary self-regulation by James Lovelock</p>
+  
+  <div class="main-container">
+    <div class="planet-container">
+      <canvas id="planet-canvas" width="300" height="300"></canvas>
+    </div>
+    
+    <div class="stats">
+      <div class="stat-item">
+        <span class="stat-label">Temperature:</span>
+        <span id="temperature">22°C</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">White Daisies:</span>
+        <span id="white-daisies">20%</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Black Daisies:</span>
+        <span id="black-daisies">20%</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Bare Soil:</span>
+        <span id="bare-soil">60%</span>
+      </div>
+    </div>
+    
+    <div class="controls">
+      <div class="buttons">
+        <button id="start-button">Start</button>
+        <button id="reset-button">Reset</button>
+      </div>
+      
+      <div class="slider-container">
+        <label for="simulation-speed">Simulation Speed:</label>
+        <input type="range" id="simulation-speed" min="0.1" max="5" step="0.1" value="1">
+        <span id="speed-value">1x</span>
+      </div>
+      
+      <div class="slider-container">
+        <label for="solar-luminosity">Solar Luminosity:</label>
+        <input type="range" id="solar-luminosity" min="0.5" max="1.5" step="0.01" value="1">
+        <span id="luminosity-value">1.0</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Simple implementation of the Daisyworld model
+    class DaisyworldModel {
+      constructor() {
+        this.whiteDaisyCoverage = 0.2;
+        this.blackDaisyCoverage = 0.2;
+        this.temperature = 295; // Kelvin
+        this.running = false;
+        this.callbacks = [];
+      }
+      
+      getWhiteDaisyCoverage() { return this.whiteDaisyCoverage; }
+      getBlackDaisyCoverage() { return this.blackDaisyCoverage; }
+      getBareSoilCoverage() { return 1 - this.whiteDaisyCoverage - this.blackDaisyCoverage; }
+      getPlanetTemperature() { return this.temperature; }
+      isRunning() { return this.running; }
+      
+      start() { 
+        this.running = true; 
+        this.runSimulation();
+      }
+      
+      pause() { this.running = false; }
+      
+      reset() {
+        this.whiteDaisyCoverage = 0.2;
+        this.blackDaisyCoverage = 0.2;
+        this.temperature = 295;
+        this.running = false;
+        this.notifyListeners();
+      }
+      
+      runSimulation() {
+        if (!this.running) return;
+        
+        // Simple simulation step
+        let whiteChange = (Math.random() - 0.5) * 0.01;
+        let blackChange = (Math.random() - 0.5) * 0.01;
+        
+        // Ensure the total coverage doesn't exceed 1
+        if (this.whiteDaisyCoverage + whiteChange + this.blackDaisyCoverage + blackChange > 1) {
+          whiteChange = 0;
+          blackChange = 0;
+        }
+        
+        this.whiteDaisyCoverage = Math.max(0, Math.min(1, this.whiteDaisyCoverage + whiteChange));
+        this.blackDaisyCoverage = Math.max(0, Math.min(1, this.blackDaisyCoverage + blackChange));
+        
+        // Temperature fluctuates based on daisy coverage
+        // White daisies cool, black daisies warm
+        const tempChange = (this.blackDaisyCoverage - this.whiteDaisyCoverage) * 0.1;
+        this.temperature += tempChange;
+        
+        this.notifyListeners();
+        
+        // Continue simulation
+        setTimeout(() => this.runSimulation(), 100);
+      }
+      
+      onUpdate(callback) {
+        this.callbacks.push(callback);
+      }
+      
+      notifyListeners() {
+        for (const callback of this.callbacks) {
+          callback();
+        }
+      }
+    }
+    
+    // Initialize the model
+    const model = new DaisyworldModel();
+    
+    // Get the canvas and context
+    const canvas = document.getElementById('planet-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Get UI elements
+    const tempDisplay = document.getElementById('temperature');
+    const whiteDisplay = document.getElementById('white-daisies');
+    const blackDisplay = document.getElementById('black-daisies');
+    const soilDisplay = document.getElementById('bare-soil');
+    const startButton = document.getElementById('start-button');
+    const resetButton = document.getElementById('reset-button');
+    
+    // Draw the planet visualization
+    function drawPlanet() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = Math.min(centerX, centerY) - 10;
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Get current model data
+      const whiteCoverage = model.getWhiteDaisyCoverage();
+      const blackCoverage = model.getBlackDaisyCoverage();
+      const bareSoilCoverage = model.getBareSoilCoverage();
+      
+      // Calculate angles for pie segments
+      const whiteAngle = whiteCoverage * Math.PI * 2;
+      const blackAngle = blackCoverage * Math.PI * 2;
+      const bareSoilAngle = bareSoilCoverage * Math.PI * 2;
+      
+      // Draw white daisy segment
+      let startAngle = 0;
+      let endAngle = whiteAngle;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      
+      // Draw black daisy segment
+      startAngle = endAngle;
+      endAngle += blackAngle;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = '#333333';
+      ctx.fill();
+      
+      // Draw bare soil segment
+      startAngle = endAngle;
+      endAngle += bareSoilAngle;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = '#A97655'; // Soil color
+      ctx.fill();
+      
+      // Draw planet outline
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = '#2c3e50';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    
+    // Update the stats displays
+    function updateStats() {
+      const tempC = (model.getPlanetTemperature() - 273.15).toFixed(1);
+      tempDisplay.textContent = `${tempC}°C`;
+      whiteDisplay.textContent = `${(model.getWhiteDaisyCoverage() * 100).toFixed(0)}%`;
+      blackDisplay.textContent = `${(model.getBlackDaisyCoverage() * 100).toFixed(0)}%`;
+      soilDisplay.textContent = `${(model.getBareSoilCoverage() * 100).toFixed(0)}%`;
+    }
+    
+    // Update UI when model changes
+    function updateUI() {
+      drawPlanet();
+      updateStats();
+      
+      // Update button states
+      startButton.textContent = model.isRunning() ? 'Pause' : 'Start';
+    }
+    
+    // Set up event listeners
+    startButton.addEventListener('click', () => {
+      if (model.isRunning()) {
+        model.pause();
+      } else {
+        model.start();
+      }
+      updateUI();
+    });
+    
+    resetButton.addEventListener('click', () => {
+      model.reset();
+      updateUI();
+    });
+    
+    // Register for model updates
+    model.onUpdate(updateUI);
+    
+    // Initial UI update
+    updateUI();
+  </script>
+</body>
+</html>
