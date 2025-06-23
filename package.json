@@ -8,7 +8,7 @@
     "test:watch": "jest --watch",
     "start": "webpack serve --open",
     "stop": "kill $(lsof -t -i:8080) 2>/dev/null || echo 'No server running'",
-    "build": "NODE_ENV=production webpack --mode production",
+    "build": "cross-env NODE_ENV=production webpack --mode production",
     "vercel-build": "npm run build"
   },
   "repository": {
