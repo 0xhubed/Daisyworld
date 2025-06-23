@@ -7,15 +7,7 @@ module.exports = {
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist'),
-    clean: true,
-    publicPath: '/'
-  },
-  resolve: {
-    extensions: ['.js', '.json'],
-    modules: [
-      path.resolve(__dirname, 'src'),
-      'node_modules'
-    ]
+    clean: true
   },
   module: {
     rules: [
@@ -30,29 +22,17 @@ module.exports = {
         }
       },
       {
-        test: /\.css$/i,
+        test: /\.css$/,
         use: [
           'style-loader',
-          {
-            loader: 'css-loader',
-            options: {
-              importLoaders: 1,
-              url: true,
-              import: true
-            }
-          }
+          'css-loader'
         ]
       }
     ]
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './index.html',
-      filename: 'index.html',
-      inject: 'body'
+      template: './index.html'
     })
-  ],
-  optimization: {
-    minimize: true
-  }
+  ]
 };
