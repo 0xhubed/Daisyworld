@@ -5,9 +5,34 @@ module.exports = {
   mode: 'production',
   entry: './src/index.js',
   output: {
-    filename: 'bundle.js',
+    filename: '[name].[contenthash].js',
     path: path.resolve(__dirname, 'dist'),
     clean: true
+  },
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        },
+        three: {
+          test: /[\\/]node_modules[\\/]three[\\/]/,
+          name: 'three',
+          chunks: 'all',
+          priority: 10,
+        }
+      }
+    },
+    usedExports: true,
+    sideEffects: false
+  },
+  performance: {
+    maxAssetSize: 500000,
+    maxEntrypointSize: 500000,
+    hints: 'warning'
   },
   module: {
     rules: [
@@ -17,7 +42,13 @@ module.exports = {
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['@babel/preset-env']
+            presets: [
+              ['@babel/preset-env', {
+                modules: false,
+                useBuiltIns: 'usage',
+                corejs: 3
+              }]
+            ]
           }
         }
       },
@@ -32,7 +63,15 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './index.html'
+      template: './index.html',
+      minify: {
+        removeComments: true,
+        collapseWhitespace: true,
+        removeRedundantAttributes: true,
+        removeScriptTypeAttributes: true,
+        removeStyleLinkTypeAttributes: true,
+        useShortDoctype: true
+      }
     })
   ]
 };

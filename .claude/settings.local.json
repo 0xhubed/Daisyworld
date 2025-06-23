@@ -27,7 +27,8 @@
       "Bash(node:*)",
       "Bash(npm run build:*)",
       "Bash(npm start)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(sed:*)"
     ]
   },
   "enableAllProjectMcpServers": false
