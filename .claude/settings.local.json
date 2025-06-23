@@ -30,7 +30,9 @@
       "Bash(npm ls:*)",
       "Bash(sed:*)",
       "Bash(vercel:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(webpack:*)",
+      "Bash(npx webpack:*)"
     ]
   },
   "enableAllProjectMcpServers": false

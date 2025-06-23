@@ -2,12 +2,11 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
-module.exports = (env, argv) => {
-  const mode = argv.mode || 'development';
-  const isProduction = mode === 'production';
+// Determine if we're in production mode
+const isProduction = process.env.NODE_ENV === 'production' || process.argv.indexOf('--mode=production') !== -1 || process.argv.indexOf('production') !== -1;
 
-  return {
-  mode: mode,
+module.exports = {
+  mode: isProduction ? 'production' : 'development',
   entry: './src/index.js',
   output: {
     filename: '[name].[contenthash].js',
@@ -82,5 +81,4 @@ module.exports = (env, argv) => {
       }
     })
   ]
-};
 };
