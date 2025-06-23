@@ -6,7 +6,7 @@ An interactive JavaScript simulation of James Lovelock's Daisyworld model, demon
 
 Daisyworld is a theoretical model developed by James Lovelock to illustrate the Gaia hypothesis of planetary self-regulation. The model demonstrates how life (represented by white and black daisies) can regulate planetary conditions (temperature) through feedback mechanisms, even as external conditions (solar luminosity) change.
 
-**Educational Background**: This simulation was originally investigated as part of a high school project in 2008, exploring complex systems and planetary feedback mechanisms. The current implementation represents an enhanced, interactive version of that earlier educational investigation.
+**Educational Background**: This simulation was originally investigated as part of a high school project many years ago, exploring complex systems and planetary feedback mechanisms. The current implementation represents an enhanced, interactive version of that earlier educational investigation.
 
 ## Features
 
