@@ -12,7 +12,9 @@ module.exports = {
   devtool: 'inline-source-map',
   devServer: {
     static: './dist',
-    hot: true
+    hot: true,
+    open: true,
+    port: 8080
   },
   module: {
     rules: [
@@ -35,7 +37,7 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       title: 'Daisyworld Simulation',
-      template: 'index.html'
+      template: './index.html'
     })
   ]
 };

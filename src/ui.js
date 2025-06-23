@@ -24,7 +24,7 @@ let model = new DaisyworldModel({
   blackDaisyAlbedo: 0.25,
   deathRate: 0.1,  // Very low death rate for guaranteed stability
   optimalTemp: 295,
-  simulationSpeed: 0.3 // Slower speed for stability
+  simulationSpeed: 0.7 // Higher speed with fewer updates for better performance
 });
 
 // Track simulation data for graphs
@@ -37,7 +37,18 @@ const timeSeriesData = {
 };
 
 // Maximum number of data points to keep in time series
-const MAX_DATA_POINTS = 100;
+const MAX_DATA_POINTS = 50; // Reduced for better performance
+
+// Performance optimization variables
+let lastChartUpdate = 0;
+let lastStatsUpdate = 0;
+let lastRendererUpdate = 0;
+let updateFrameId = null;
+const CHART_UPDATE_INTERVAL = 500; // Update charts every 500ms for smoother performance
+const STATS_UPDATE_INTERVAL = 200; // Update stats every 200ms
+const RENDERER_UPDATE_INTERVAL = 200; // Update 3D renderer every 200ms
+const MAX_FPS = 30; // Limit simulation updates to 30 FPS
+const FRAME_INTERVAL = 1000 / MAX_FPS;
 
 // Container for 3D planet visualization
 const planetContainer = document.getElementById('planet-container');
@@ -48,7 +59,7 @@ import { PlanetRenderer } from './planet-renderer.js';
 // 3D Planet renderer instance
 let planetRenderer = null;
 
-// Initialize chart variables (not used in this version)
+// Initialize chart variables
 let temperatureChart;
 let populationChart;
 
@@ -61,13 +72,65 @@ let blackDaisyCoverageSlider, blackDaisyCoverageValue;
 let deathRateSlider, deathRateValue;
 let simulationStatus;
 
+// New UI elements
+let saveStateButton, loadStateButton, exportDataButton;
+let loadingIndicator;
+
 // Preset buttons
 let presetStableButton, presetIncreasingButton, presetWhiteDominantButton, presetBlackDominantButton;
+
+/**
+ * Initialize background particles
+ */
+function initializeParticles() {
+  const particleContainer = document.getElementById('particle-background');
+  if (!particleContainer) return;
+  
+  const particleCount = 100; // More stars for better star field effect
+  
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    
+    // Randomly assign particle sizes with better distribution
+    const rand = Math.random();
+    if (rand > 0.9) {
+      particle.classList.add('large');
+    } else if (rand > 0.7) {
+      particle.classList.add('medium');
+    }
+    
+    // Random position across the entire screen
+    particle.style.left = Math.random() * 100 + 'vw';
+    particle.style.top = Math.random() * 100 + 'vh';
+    
+    // Make particles static (no floating animation) for true star field effect
+    particle.style.position = 'fixed';
+    
+    // Some stars don't twinkle for variety
+    if (Math.random() > 0.7) {
+      // Random twinkle delay for more natural effect
+      const twinkleDelay = Math.random() * 5;
+      particle.style.setProperty('--twinkle-delay', twinkleDelay + 's');
+    } else {
+      // Static stars (no animation)
+      particle.style.animation = 'none';
+    }
+    
+    particleContainer.appendChild(particle);
+  }
+}
 
 /**
  * Initialize the UI components
  */
 function initializeUI() {
+  // Initialize background particles
+  initializeParticles();
+  
+  // Show loading indicator
+  loadingIndicator = document.getElementById('loading-indicator');
+  
   // Initialize DOM element references
   startButton = document.getElementById('start-btn');
   pauseButton = document.getElementById('pause-btn');
@@ -85,6 +148,11 @@ function initializeUI() {
   deathRateValue = document.getElementById('death-rate-value');
   simulationStatus = document.getElementById('simulation-status');
   
+  // New UI elements
+  saveStateButton = document.getElementById('save-state-btn');
+  loadStateButton = document.getElementById('load-state-btn');
+  exportDataButton = document.getElementById('export-data-btn');
+  
   // Preset buttons
   presetStableButton = document.getElementById('preset-stable');
   presetIncreasingButton = document.getElementById('preset-increasing');
@@ -98,15 +166,27 @@ function initializeUI() {
   model.onTimeStep(handleTimeStep);
   console.log("Model time step handler registered");
   
-  // Charts are no longer used in this version
-  // createCharts();
+  // Create charts
+  createCharts();
+  
+  // Initialize tooltip system
+  initializeTooltips();
+  
+  // Initialize keyboard shortcuts
+  initializeKeyboardShortcuts();
   
   // Set up button event listeners
   setupEventListeners();
   
   // Initialize 3D planet renderer if container exists
   if (planetContainer) {
-    planetRenderer = new PlanetRenderer(planetContainer, model);
+    setTimeout(() => {
+      planetRenderer = new PlanetRenderer(planetContainer, model);
+      // Hide loading indicator after 3D scene is created
+      if (loadingIndicator) {
+        loadingIndicator.classList.add('hidden');
+      }
+    }, 100);
   }
   
   // Add initial data point to charts
@@ -117,8 +197,7 @@ function initializeUI() {
     blackDaisyCoverage: model.getBlackDaisyCoverage()
   });
   
-  // Charts are no longer used in this version
-  // updateCharts();
+  updateCharts();
   
   // Update stats display with initial values
   updateStats(
@@ -151,57 +230,57 @@ function updateSliderDisplays() {
  * Create time series charts
  */
 function createCharts() {
-  const temperatureCtx = document.getElementById('temperature-graph');
-  const populationCtx = document.getElementById('population-graph');
+  const temperatureCtx = document.getElementById('temperature-chart');
+  const populationCtx = document.getElementById('population-chart');
   
   if (!temperatureCtx || !populationCtx) {
     return;
   }
   
-  // Temperature chart
+  // Temperature chart - showing Celsius
   temperatureChart = new Chart(temperatureCtx.getContext('2d'), {
     type: 'line',
     data: {
       labels: [],
       datasets: [{
-        label: 'Planet Temperature (°C)',
+        label: 'Planet Temperature',
         data: [],
-        borderColor: 'rgb(255, 99, 132)',
-        backgroundColor: 'rgba(255, 99, 132, 0.2)',
-        borderWidth: 2,
-        pointRadius: 0, // Hide points for smoother line
-        pointHitRadius: 10, // But still allow interaction
+        borderColor: '#ffffff',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 3,
+        pointRadius: 0,
+        pointHoverRadius: 6,
         fill: true,
-        tension: 0.4 // Smoother curve
+        tension: 0.4
       }]
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         title: {
           display: true,
           text: 'Global Temperature Over Time',
+          color: '#ffffff',
           font: {
             size: 16,
             weight: 'bold'
           }
         },
+        legend: {
+          display: false
+        },
         tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: '#4ec0fe',
+          borderWidth: 1,
           callbacks: {
-            // Convert Kelvin to Celsius in tooltips
             label: function(context) {
-              const tempK = context.parsed.y;
-              const tempC = (tempK - 273.15).toFixed(1);
-              return `Temperature: ${tempC}°C (${tempK.toFixed(1)}K)`;
+              return `Temperature: ${context.parsed.y.toFixed(1)}°C`;
             }
           }
-        },
-        legend: {
-          position: 'top'
-        },
-        // Add gradient fill
-        filler: {
-          propagate: true
         }
       },
       interaction: {
@@ -212,26 +291,38 @@ function createCharts() {
         x: {
           title: {
             display: true,
-            text: 'Time'
+            text: 'Time Steps',
+            color: '#ffffff'
+          },
+          ticks: {
+            color: '#ffffff'
+          },
+          grid: {
+            color: 'rgba(255, 255, 255, 0.2)'
           }
         },
         y: {
           title: {
             display: true,
-            text: 'Temperature (K)'
+            text: 'Temperature (°C)',
+            color: '#ffffff'
           },
-          beginAtZero: false,
-          // Add reference lines for optimal temperature
+          ticks: {
+            color: '#ffffff',
+            callback: function(value) {
+              return value.toFixed(1) + '°C';
+            }
+          },
           grid: {
             color: function(context) {
-              // Add a colored line at the optimal temperature (295K)
-              if (context.tick.value === 295) {
-                return 'rgba(0, 255, 0, 0.5)';
+              // Highlight optimal temperature (~22°C)
+              if (Math.abs(context.tick.value - 22) < 0.5) {
+                return 'rgba(255, 255, 255, 0.5)';
               }
-              return 'rgba(0, 0, 0, 0.1)';
+              return 'rgba(255, 255, 255, 0.2)';
             },
             lineWidth: function(context) {
-              if (context.tick.value === 295) {
+              if (Math.abs(context.tick.value - 22) < 0.5) {
                 return 2;
               }
               return 1;
@@ -239,14 +330,13 @@ function createCharts() {
           }
         }
       },
-      animation: {
-        duration: 0 // Disable animation for performance
-      },
+      animation: false,
+      responsive: true,
       maintainAspectRatio: false
     }
   });
   
-  // Population chart - improved visualization with stacked area chart
+  // Population chart - showing daisy populations over time
   populationChart = new Chart(populationCtx.getContext('2d'), {
     type: 'line',
     data: {
@@ -255,56 +345,63 @@ function createCharts() {
         {
           label: 'White Daisies',
           data: [],
-          borderColor: 'rgb(220, 220, 220)',
-          backgroundColor: 'rgba(220, 220, 220, 0.8)',
-          fill: 'origin',
-          tension: 0.4,
+          borderColor: '#ffffff',
+          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+          borderWidth: 3,
           pointRadius: 0,
-          order: 3  // Drawing order (top layer)
+          pointHoverRadius: 6,
+          fill: false,
+          tension: 0.4
         },
         {
           label: 'Black Daisies',
           data: [],
-          borderColor: 'rgb(40, 40, 40)',
-          backgroundColor: 'rgba(40, 40, 40, 0.8)',
-          fill: 'origin',
-          tension: 0.4,
+          borderColor: '#404040',
+          backgroundColor: 'rgba(64, 64, 64, 0.2)',
+          borderWidth: 3,
           pointRadius: 0,
-          order: 2  // Middle layer
-        },
-        {
-          label: 'Bare Soil',
-          data: [],
-          borderColor: 'rgb(139, 69, 19)',
-          backgroundColor: 'rgba(139, 69, 19, 0.8)',
-          fill: 'origin',
-          tension: 0.4,
-          pointRadius: 0,
-          order: 1  // Bottom layer
+          pointHoverRadius: 6,
+          fill: false,
+          tension: 0.4
         }
       ]
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         title: {
           display: true,
-          text: 'Surface Coverage Over Time',
+          text: 'Daisy Populations Over Time',
+          color: '#ffffff',
           font: {
             size: 16,
             weight: 'bold'
           }
         },
+        legend: {
+          position: 'top',
+          labels: {
+            color: '#ffffff',
+            usePointStyle: true,
+            padding: 15,
+            font: {
+              size: 14,
+              weight: 'bold'
+            }
+          }
+        },
         tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: '#4ec0fe',
+          borderWidth: 1,
           callbacks: {
-            // Format percentages in tooltips
             label: function(context) {
               return `${context.dataset.label}: ${(context.parsed.y * 100).toFixed(1)}%`;
             }
           }
-        },
-        legend: {
-          position: 'top'
         }
       },
       interaction: {
@@ -315,28 +412,37 @@ function createCharts() {
         x: {
           title: {
             display: true,
-            text: 'Time'
+            text: 'Time Steps',
+            color: '#ffffff'
+          },
+          ticks: {
+            color: '#ffffff'
+          },
+          grid: {
+            color: 'rgba(255, 255, 255, 0.2)'
           }
         },
         y: {
-          stacked: true,  // Enable stacking
           title: {
             display: true,
-            text: 'Coverage (%)'
+            text: 'Population (%)',
+            color: '#ffffff'
           },
           beginAtZero: true,
           max: 1,
           ticks: {
-            // Convert decimal to percentage
+            color: '#ffffff',
             callback: function(value) {
-              return (value * 100) + '%';
+              return (value * 100).toFixed(0) + '%';
             }
+          },
+          grid: {
+            color: 'rgba(255, 255, 255, 0.2)'
           }
         }
       },
-      animation: {
-        duration: 0 // Disable animation for performance
-      },
+      animation: false,
+      responsive: true,
       maintainAspectRatio: false
     }
   });
@@ -369,6 +475,209 @@ function addChartAnnotation(time, temperature) {
 }
 
 /**
+ * Initialize tooltip system
+ */
+function initializeTooltips() {
+  const tooltip = document.createElement('div');
+  tooltip.className = 'tooltip';
+  document.body.appendChild(tooltip);
+  
+  document.addEventListener('mouseover', (e) => {
+    if (e.target.hasAttribute('data-tooltip')) {
+      const text = e.target.getAttribute('data-tooltip');
+      tooltip.textContent = text;
+      
+      // Position tooltip first to get its dimensions
+      tooltip.style.visibility = 'hidden';
+      tooltip.classList.add('show');
+      
+      // Get element position relative to viewport
+      const rect = e.target.getBoundingClientRect();
+      
+      // Calculate tooltip position
+      const tooltipWidth = tooltip.offsetWidth;
+      const tooltipHeight = tooltip.offsetHeight;
+      
+      // Center horizontally above the element
+      let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+      let top = rect.top - tooltipHeight - 10;
+      
+      // Adjust if tooltip goes off-screen horizontally
+      if (left < 10) {
+        left = 10;
+      } else if (left + tooltipWidth > window.innerWidth - 10) {
+        left = window.innerWidth - tooltipWidth - 10;
+      }
+      
+      // Adjust if tooltip goes off-screen vertically (show below element instead)
+      if (top < 10) {
+        top = rect.bottom + 10;
+        // Update arrow direction if needed (future enhancement)
+      }
+      
+      // Apply final position
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = top + 'px';
+      tooltip.style.visibility = 'visible';
+    }
+  });
+  
+  document.addEventListener('mouseout', (e) => {
+    if (e.target.hasAttribute('data-tooltip')) {
+      tooltip.classList.remove('show');
+    }
+  });
+}
+
+/**
+ * Initialize keyboard shortcuts
+ */
+function initializeKeyboardShortcuts() {
+  // Create keyboard shortcuts display
+  const shortcutsDisplay = document.createElement('div');
+  shortcutsDisplay.className = 'keyboard-shortcuts';
+  shortcutsDisplay.innerHTML = `
+    <h4>Keyboard Shortcuts</h4>
+    <ul>
+      <li><span class="key">Space</span> Start/Pause</li>
+      <li><span class="key">R</span> Reset</li>
+      <li><span class="key">S</span> Step</li>
+      <li><span class="key">H</span> Toggle Help</li>
+      <li><span class="key">Esc</span> Hide Help</li>
+    </ul>
+  `;
+  document.body.appendChild(shortcutsDisplay);
+  
+  document.addEventListener('keydown', (e) => {
+    // Don't trigger if user is typing in an input field
+    if (e.target.tagName === 'INPUT') return;
+    
+    switch(e.code) {
+      case 'Space':
+        e.preventDefault();
+        if (model.isRunning()) {
+          pauseSimulation();
+        } else {
+          startSimulation();
+        }
+        break;
+      case 'KeyR':
+        e.preventDefault();
+        resetSimulation();
+        break;
+      case 'KeyS':
+        e.preventDefault();
+        if (!model.isRunning()) {
+          stepSimulation();
+        }
+        break;
+      case 'KeyH':
+        e.preventDefault();
+        shortcutsDisplay.classList.toggle('show');
+        break;
+      case 'Escape':
+        shortcutsDisplay.classList.remove('show');
+        break;
+    }
+  });
+}
+
+/**
+ * Save current simulation state
+ */
+function saveSimulationState() {
+  const state = {
+    timestamp: Date.now(),
+    parameters: {
+      solarLuminosity: parseFloat(solarLuminositySlider.value),
+      whiteDaisyCoverage: parseFloat(whiteDaisyCoverageSlider.value),
+      blackDaisyCoverage: parseFloat(blackDaisyCoverageSlider.value),
+      deathRate: parseFloat(deathRateSlider.value),
+      simulationSpeed: parseFloat(simulationSpeedSlider.value)
+    },
+    modelState: {
+      temperature: model.getPlanetTemperature(),
+      whiteCoverage: model.getWhiteDaisyCoverage(),
+      blackCoverage: model.getBlackDaisyCoverage()
+    },
+    timeSeriesData: JSON.parse(JSON.stringify(timeSeriesData))
+  };
+  
+  localStorage.setItem('daisyworld_saved_state', JSON.stringify(state));
+  updateSimulationStatus('State saved successfully');
+}
+
+/**
+ * Load saved simulation state
+ */
+function loadSimulationState() {
+  const savedState = localStorage.getItem('daisyworld_saved_state');
+  if (!savedState) {
+    updateSimulationStatus('No saved state found');
+    return;
+  }
+  
+  try {
+    const state = JSON.parse(savedState);
+    
+    // Restore parameters
+    solarLuminositySlider.value = state.parameters.solarLuminosity;
+    whiteDaisyCoverageSlider.value = state.parameters.whiteDaisyCoverage;
+    blackDaisyCoverageSlider.value = state.parameters.blackDaisyCoverage;
+    deathRateSlider.value = state.parameters.deathRate;
+    simulationSpeedSlider.value = state.parameters.simulationSpeed;
+    
+    updateSliderDisplays();
+    
+    // Reset simulation with loaded parameters
+    resetSimulation();
+    
+    // Restore time series data
+    Object.assign(timeSeriesData, state.timeSeriesData);
+    updateCharts();
+    
+    const date = new Date(state.timestamp).toLocaleString();
+    updateSimulationStatus(`State loaded from ${date}`);
+  } catch (error) {
+    updateSimulationStatus('Error loading saved state');
+    console.error('Load state error:', error);
+  }
+}
+
+/**
+ * Export simulation data as CSV
+ */
+function exportSimulationData() {
+  if (timeSeriesData.times.length === 0) {
+    updateSimulationStatus('No data to export');
+    return;
+  }
+  
+  let csv = 'Time,Temperature_Celsius,White_Daisies_Percent,Black_Daisies_Percent,Bare_Soil_Percent\n';
+  
+  for (let i = 0; i < timeSeriesData.times.length; i++) {
+    const tempC = (timeSeriesData.temperatures[i] - 273.15).toFixed(2);
+    const whitePercent = (timeSeriesData.whiteDaisyCoverage[i] * 100).toFixed(2);
+    const blackPercent = (timeSeriesData.blackDaisyCoverage[i] * 100).toFixed(2);
+    const barePercent = (timeSeriesData.bareSoilCoverage[i] * 100).toFixed(2);
+    
+    csv += `${timeSeriesData.times[i]},${tempC},${whitePercent},${blackPercent},${barePercent}\n`;
+  }
+  
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `daisyworld_data_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+  
+  updateSimulationStatus('Data exported successfully');
+}
+
+/**
  * Set up event listeners for UI controls
  */
 function setupEventListeners() {
@@ -386,6 +695,11 @@ function setupEventListeners() {
   pauseButton.addEventListener('click', pauseSimulation);
   resetButton.addEventListener('click', resetSimulation);
   stepButton.addEventListener('click', stepSimulation);
+  
+  // New functionality buttons
+  if (saveStateButton) saveStateButton.addEventListener('click', saveSimulationState);
+  if (loadStateButton) loadStateButton.addEventListener('click', loadSimulationState);
+  if (exportDataButton) exportDataButton.addEventListener('click', exportSimulationData);
   
   // Slider input events
   simulationSpeedSlider.addEventListener('input', function() {
@@ -483,7 +797,7 @@ function resetSimulation() {
   
   // Update UI
   drawPlanet();
-  // updateCharts(); // Charts removed in this version
+  updateCharts();
   disableInitialConditionControls(false);
   
   // Update the stats display with initial values
@@ -511,7 +825,7 @@ function stepSimulation() {
     
     // Explicitly update all visuals
     drawPlanet();
-    // updateCharts(); // Charts removed in this version
+    updateCharts();
     
     // Update stats display
     updateStats(
@@ -573,28 +887,49 @@ function updateSimulationStatus(message) {
 }
 
 /**
- * Handle time step event from the model
+ * Handle time step event from the model - heavily optimized for performance
  */
 function handleTimeStep(data) {
-  // Add data to time series and log it for debugging
-  console.log("Time step data received:", data);
-  addTimeSeriesDataPoint(data);
-  
-  // Update 3D visualization
-  if (planetRenderer) {
-    planetRenderer.update(data);
+  // Cancel any pending update frame
+  if (updateFrameId) {
+    cancelAnimationFrame(updateFrameId);
   }
   
-  // Update stats display with current values
-  updateStats(
-    data.temperature,
-    data.whiteDaisyCoverage, 
-    data.blackDaisyCoverage,
-    1 - data.whiteDaisyCoverage - data.blackDaisyCoverage
-  );
+  // Always add data to time series (lightweight operation)
+  addTimeSeriesDataPoint(data);
   
-  // Update status with current temperature
-  updateSimulationStatus(`Time: ${data.time}, Temperature: ${data.temperature.toFixed(1)}K`);
+  // Schedule updates using requestAnimationFrame for better performance
+  updateFrameId = requestAnimationFrame(() => {
+    const now = Date.now();
+    
+    // Throttle 3D visualization updates aggressively
+    if (planetRenderer && now - lastRendererUpdate > RENDERER_UPDATE_INTERVAL) {
+      planetRenderer.update(data);
+      lastRendererUpdate = now;
+    }
+    
+    // Throttle chart updates very aggressively
+    if (now - lastChartUpdate > CHART_UPDATE_INTERVAL) {
+      updateCharts();
+      lastChartUpdate = now;
+    }
+    
+    // Throttle stats display updates
+    if (now - lastStatsUpdate > STATS_UPDATE_INTERVAL) {
+      updateStats(
+        data.temperature,
+        data.whiteDaisyCoverage, 
+        data.blackDaisyCoverage,
+        1 - data.whiteDaisyCoverage - data.blackDaisyCoverage
+      );
+      
+      // Update status with current temperature
+      updateSimulationStatus(`Time: ${data.time}, Temperature: ${data.temperature.toFixed(1)}K`);
+      lastStatsUpdate = now;
+    }
+    
+    updateFrameId = null;
+  });
 }
 
 /**
@@ -602,7 +937,8 @@ function handleTimeStep(data) {
  */
 function addTimeSeriesDataPoint(data) {
   timeSeriesData.times.push(data.time);
-  timeSeriesData.temperatures.push(data.temperature);
+  // Convert temperature to Celsius for the chart
+  timeSeriesData.temperatures.push(data.temperature - 273.15);
   timeSeriesData.whiteDaisyCoverage.push(data.whiteDaisyCoverage);
   timeSeriesData.blackDaisyCoverage.push(data.blackDaisyCoverage);
   timeSeriesData.bareSoilCoverage.push(1 - data.whiteDaisyCoverage - data.blackDaisyCoverage);
@@ -857,8 +1193,16 @@ function drawTemperatureScale(temperature, x, y) {
   planetCtx.fillText(`${tempC.toFixed(1)}°C (${temperature.toFixed(1)}K)`, x, y + height + 15);
 }
 
+// Cache for previous stat values to avoid redundant DOM updates
+let lastStatValues = {
+  temperature: null,
+  whiteCoverage: null,
+  blackCoverage: null,
+  bareSoilCoverage: null
+};
+
 /**
- * Update statistics display elements if they exist
+ * Update statistics display elements if they exist - optimized for performance
  */
 function updateStats(temperature, whiteCoverage, blackCoverage, bareSoilCoverage) {
   const temperatureElement = document.getElementById('temperature-value');
@@ -866,35 +1210,30 @@ function updateStats(temperature, whiteCoverage, blackCoverage, bareSoilCoverage
   const blackDaisyElement = document.getElementById('black-daisy-value');
   const bareSoilElement = document.getElementById('bare-soil-value');
   
-  console.log("Updating stats display:", {
-    temperature: temperature,
-    white: whiteCoverage,
-    black: blackCoverage,
-    bare: bareSoilCoverage
-  });
+  // Only update if values have changed significantly
+  const tempC = (temperature - 273.15).toFixed(1);
+  const whitePercent = (whiteCoverage * 100).toFixed(1);
+  const blackPercent = (blackCoverage * 100).toFixed(1);
+  const barePercent = (bareSoilCoverage * 100).toFixed(1);
   
-  if (temperatureElement) {
-    temperatureElement.textContent = `${(temperature - 273.15).toFixed(1)}°C`;
-  } else {
-    console.warn("Temperature element not found");
+  if (temperatureElement && tempC !== lastStatValues.temperature) {
+    temperatureElement.textContent = `${tempC}°C`;
+    lastStatValues.temperature = tempC;
   }
   
-  if (whiteDaisyElement) {
-    whiteDaisyElement.textContent = `${(whiteCoverage * 100).toFixed(1)}%`;
-  } else {
-    console.warn("White daisy element not found");
+  if (whiteDaisyElement && whitePercent !== lastStatValues.whiteCoverage) {
+    whiteDaisyElement.textContent = `${whitePercent}%`;
+    lastStatValues.whiteCoverage = whitePercent;
   }
   
-  if (blackDaisyElement) {
-    blackDaisyElement.textContent = `${(blackCoverage * 100).toFixed(1)}%`;
-  } else {
-    console.warn("Black daisy element not found");
+  if (blackDaisyElement && blackPercent !== lastStatValues.blackCoverage) {
+    blackDaisyElement.textContent = `${blackPercent}%`;
+    lastStatValues.blackCoverage = blackPercent;
   }
   
-  if (bareSoilElement) {
-    bareSoilElement.textContent = `${(bareSoilCoverage * 100).toFixed(1)}%`;
-  } else {
-    console.warn("Bare soil element not found");
+  if (bareSoilElement && barePercent !== lastStatValues.bareSoilCoverage) {
+    bareSoilElement.textContent = `${barePercent}%`;
+    lastStatValues.bareSoilCoverage = barePercent;
   }
 }
 
@@ -929,22 +1268,24 @@ function drawPlanetSegments(centerX, centerY, radius, segments) {
 }
 
 /**
- * Update time series charts
+ * Update time series charts with optimized performance
  */
 function updateCharts() {
   if (!temperatureChart || !populationChart) return;
   
-  // Update temperature chart
-  temperatureChart.data.labels = timeSeriesData.times;
-  temperatureChart.data.datasets[0].data = timeSeriesData.temperatures;
-  temperatureChart.update();
-  
-  // Update population chart
-  populationChart.data.labels = timeSeriesData.times;
-  populationChart.data.datasets[0].data = timeSeriesData.whiteDaisyCoverage;
-  populationChart.data.datasets[1].data = timeSeriesData.blackDaisyCoverage;
-  populationChart.data.datasets[2].data = timeSeriesData.bareSoilCoverage;
-  populationChart.update();
+  // Batch DOM updates
+  requestAnimationFrame(() => {
+    // Update temperature chart
+    temperatureChart.data.labels = timeSeriesData.times;
+    temperatureChart.data.datasets[0].data = timeSeriesData.temperatures;
+    temperatureChart.update('none'); // No animation for performance
+    
+    // Update population chart
+    populationChart.data.labels = timeSeriesData.times;
+    populationChart.data.datasets[0].data = timeSeriesData.whiteDaisyCoverage;
+    populationChart.data.datasets[1].data = timeSeriesData.blackDaisyCoverage;
+    populationChart.update('none'); // No animation for performance
+  });
 }
 
 /**

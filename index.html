@@ -4,11 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Daisyworld Simulation</title>
-  <link rel="stylesheet" href="src/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <meta name="theme-color" content="#1a2a3a">
 </head>
 <body>
+  <!-- Background Particles -->
+  <div class="particle-background" id="particle-background"></div>
+  
   <h1>
     <svg class="solar-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <circle cx="12" cy="12" r="5" fill="#ffdd00"/>
@@ -21,16 +23,77 @@
     Daisyworld Simulation
   </h1>
   
+  <!-- Motivation Section -->
+  <div class="background-section">
+    <h2 class="section-title">Motivation</h2>
+    <div class="background-content">
+      <div class="background-text">
+        <p>Having explored the fascinating world of <strong>Daisyworld</strong> as part of a high school project many years ago, I was inspired to bring this remarkable model to life through modern web technologies. This interactive simulation represents the digital evolution of that early educational exploration.</p>
+        
+        <div class="theory-box">
+          <h3>About Daisyworld</h3>
+          <p><strong>Daisyworld</strong> is a mathematical model developed by <strong>James Lovelock</strong> and <strong>Andrew Watson</strong> in 1983 to demonstrate the <strong>Gaia hypothesis</strong> - the idea that Earth's surface displays homeostatic properties similar to a living organism.</p>
+          <p>The model imagines a planet populated by two types of daisies:</p>
+          <ul>
+            <li><strong>White Daisies:</strong> High albedo (reflective) - they cool the planet by reflecting sunlight</li>
+            <li><strong>Black Daisies:</strong> Low albedo (absorptive) - they warm the planet by absorbing more heat</li>
+          </ul>
+        </div>
+        
+        <div class="mechanism-box">
+          <h3>Self-Regulation Mechanism</h3>
+          <p>As solar luminosity changes, the daisy populations naturally adjust:</p>
+          <ul>
+            <li>When it's <em>too cold</em>: Black daisies proliferate, absorbing more heat</li>
+            <li>When it's <em>too hot</em>: White daisies dominate, reflecting excess heat</li>
+            <li>This creates a <strong>feedback loop</strong> that maintains optimal temperature without planning or foresight</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="significance-box">
+        <h3>Scientific Significance</h3>
+        <p>Daisyworld demonstrates that <strong>planetary self-regulation</strong> can emerge from simple competition between species, without requiring teleological control. This validates the Gaia hypothesis that Earth's climate stability results from natural biological processes.</p>
+        <p><em>"The model demonstrates that self-regulation of the global environment can emerge from competition amongst types of life altering their local environment in different ways."</em> - James Lovelock</p>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
-    <div class="visualization">
+    <div class="main-content">
+      <!-- Loading state -->
+      <div id="loading-indicator" class="loading-container">
+        <div class="loading-spinner"></div>
+        <p>Initializing 3D Environment...</p>
+      </div>
+      
       <div id="planet-view">
-        <h2 class="section-title">Planet Visualization</h2>
+        <h2 class="section-title">
+          Planet Visualization
+          <button class="help-btn" data-tooltip="Interactive 3D planet showing daisy distribution. Use mouse to rotate and zoom.">?</button>
+        </h2>
         <div id="planet-container" style="width: 100%; height: 500px;"></div>
         <div class="planet-stats">
           <div class="stat-item"><span>Temperature:</span> <span id="temperature-value">--°C</span></div>
           <div class="stat-item"><span>White Daisies:</span> <span id="white-daisy-value">--%</span></div>
           <div class="stat-item"><span>Black Daisies:</span> <span id="black-daisy-value">--%</span></div>
           <div class="stat-item"><span>Bare Soil:</span> <span id="bare-soil-value">--%</span></div>
+        </div>
+      </div>
+      
+      <!-- Add graphs section -->
+      <div id="graphs-section">
+        <h2 class="section-title">
+          Simulation Data
+          <button class="help-btn" data-tooltip="Real-time graphs showing temperature and population changes over time.">?</button>
+        </h2>
+        <div class="graphs-container">
+          <div class="graph-item">
+            <canvas id="temperature-chart"></canvas>
+          </div>
+          <div class="graph-item">
+            <canvas id="population-chart"></canvas>
+          </div>
         </div>
       </div>
     </div>
@@ -40,15 +103,31 @@
       
       <!-- Simulation Control Buttons -->
       <div class="control-group">
-        <button id="start-btn">Start</button>
-        <button id="pause-btn" disabled>Pause</button>
-        <button id="reset-btn">Reset</button>
-        <button id="step-btn">Step</button>
+        <h3>Control Actions</h3>
+        <div class="button-grid main-controls">
+          <button id="start-btn" data-tooltip="Start simulation (Spacebar)" data-key="Space">Start</button>
+          <button id="pause-btn" disabled data-tooltip="Pause simulation (P)" data-key="KeyP">Pause</button>
+          <button id="reset-btn" data-tooltip="Reset simulation (R)" data-key="KeyR">Reset</button>
+          <button id="step-btn" data-tooltip="Single step (S)" data-key="KeyS">Step</button>
+        </div>
+      </div>
+      
+      <!-- Quick Actions -->
+      <div class="control-group">
+        <h3>Data Management</h3>
+        <div class="button-grid secondary-controls">
+          <button id="save-state-btn" data-tooltip="Save current state">Save State</button>
+          <button id="load-state-btn" data-tooltip="Load saved state">Load State</button>
+          <button id="export-data-btn" data-tooltip="Export simulation data as CSV">Export Data</button>
+        </div>
       </div>
       
       <!-- Simulation Speed -->
       <div class="control-group">
-        <label for="simulation-speed">Simulation Speed</label>
+        <label for="simulation-speed">
+          Simulation Speed
+          <button class="help-btn" data-tooltip="Controls how fast the simulation runs (0.1x - 10x speed)">?</button>
+        </label>
         <div class="slider-container">
           <input type="range" id="simulation-speed" min="0.1" max="10" step="0.1" value="1">
           <span class="slider-value" id="simulation-speed-value">1.0</span>
@@ -57,7 +136,10 @@
       
       <!-- Solar Luminosity -->
       <div class="control-group">
-        <label for="solar-luminosity">Solar Luminosity</label>
+        <label for="solar-luminosity">
+          Solar Luminosity
+          <button class="help-btn" data-tooltip="Sun's energy output. Higher values = more heat. Earth's sun = 1.0">?</button>
+        </label>
         <div class="slider-container">
           <input type="range" id="solar-luminosity" min="0.6" max="1.6" step="0.01" value="1.0">
           <span class="slider-value" id="solar-luminosity-value">1.0</span>
@@ -68,7 +150,10 @@
       
       <!-- White Daisy Coverage -->
       <div class="control-group">
-        <label for="white-daisy-coverage">White Daisy Coverage</label>
+        <label for="white-daisy-coverage">
+          White Daisy Coverage
+          <button class="help-btn" data-tooltip="Initial coverage of white daisies. White daisies reflect heat and cool the planet.">?</button>
+        </label>
         <div class="slider-container">
           <input type="range" id="white-daisy-coverage" min="0" max="0.5" step="0.01" value="0.2">
           <span class="slider-value" id="white-daisy-coverage-value">0.20</span>
@@ -77,7 +162,10 @@
       
       <!-- Black Daisy Coverage -->
       <div class="control-group">
-        <label for="black-daisy-coverage">Black Daisy Coverage</label>
+        <label for="black-daisy-coverage">
+          Black Daisy Coverage
+          <button class="help-btn" data-tooltip="Initial coverage of black daisies. Black daisies absorb heat and warm the planet.">?</button>
+        </label>
         <div class="slider-container">
           <input type="range" id="black-daisy-coverage" min="0" max="0.5" step="0.01" value="0.2">
           <span class="slider-value" id="black-daisy-coverage-value">0.20</span>
@@ -86,7 +174,10 @@
       
       <!-- Death Rate -->
       <div class="control-group">
-        <label for="death-rate">Death Rate</label>
+        <label for="death-rate">
+          Death Rate
+          <button class="help-btn" data-tooltip="Rate at which daisies die naturally. Higher values = shorter daisy lifespan.">?</button>
+        </label>
         <div class="slider-container">
           <input type="range" id="death-rate" min="0.1" max="0.5" step="0.01" value="0.3">
           <span class="slider-value" id="death-rate-value">0.30</span>
@@ -102,6 +193,41 @@
       </div>
       
       <div id="simulation-status">Simulation ready</div>
+      
+      <!-- Help footer -->
+      <div class="help-footer">
+        <small>Press <kbd>H</kbd> for keyboard shortcuts</small>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Real-World Examples Section -->
+  <div class="examples-section">
+    <h2 class="section-title">Real-World Examples of Daisyworld-like Systems</h2>
+    <div class="examples-grid">
+      <div class="example-item">
+        <h3>1. Vegetation and Climate Feedback</h3>
+        <p><strong>Example:</strong> Forests (like the Amazon) impact regional and even global climate by controlling evaporation, humidity, cloud formation, and reflectivity.</p>
+        <p><strong>How it's Daisyworld:</strong> Just as daisies can cool or warm their world by changing how much sunlight is reflected or absorbed, forests can modulate local and global temperatures and rainfall patterns. Deforestation (removal of "cooling daisies") leads to warming; afforestation or regrowth can cool things down.</p>
+      </div>
+      
+      <div class="example-item">
+        <h3>2. Phytoplankton and Cloud Formation</h3>
+        <p><strong>Example:</strong> Ocean phytoplankton release compounds like dimethyl sulfide (DMS), which helps form clouds.</p>
+        <p><strong>How it's Daisyworld:</strong> More phytoplankton = more DMS = more clouds = higher albedo and cooler Earth. If the oceans warm, phytoplankton populations can increase, enhancing cloudiness and creating a negative feedback loop—very Daisyworld.</p>
+      </div>
+      
+      <div class="example-item">
+        <h3>3. Ice-Albedo Feedback</h3>
+        <p><strong>Example:</strong> Arctic and Antarctic sea ice reflect sunlight; when it melts, dark water absorbs more heat.</p>
+        <p><strong>How it's Daisyworld:</strong> More ice (white surface) cools the planet, less ice warms it—a feedback similar to the white/black daisy interplay. Though in this case, the negative feedback can flip to positive feedback (runaway warming).</p>
+      </div>
+      
+      <div class="example-item">
+        <h3>4. Biosphere Regulation of Carbon Dioxide</h3>
+        <p><strong>Example:</strong> Forests and soils absorb carbon dioxide, moderating the greenhouse effect.</p>
+        <p><strong>How it's Daisyworld:</strong> Life helps maintain a stable environment for itself by adjusting atmospheric composition. When CO₂ rises, plant growth can increase, sucking up more CO₂—a stabilizing (negative) feedback.</p>
+      </div>
     </div>
   </div>
   

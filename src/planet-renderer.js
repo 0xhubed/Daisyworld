@@ -11,12 +11,22 @@ export class PlanetRenderer {
     this.container = container;
     this.model = model;
     
+    // Performance optimization variables
+    this.lastTextureUpdate = 0;
+    this.textureUpdateInterval = 400; // Update texture every 400ms for much better performance
+    this.skipFrames = 0;
+    this.maxSkipFrames = 3; // Skip 3 out of 4 update calls
+    
     // Setup scene, camera, renderer
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer = new THREE.WebGLRenderer({ 
+      antialias: true, 
+      alpha: true,
+      powerPreference: "high-performance" // Optimize for performance
+    });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
     this.container.appendChild(this.renderer.domElement);
     
     // Setup lighting
@@ -47,16 +57,24 @@ export class PlanetRenderer {
   }
   
   setupLights() {
-    // Ambient light
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    // Enhanced ambient light for better visibility
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
     this.scene.add(ambientLight);
     
-    // Directional light (sun)
-    this.sunLight = new THREE.DirectionalLight(0xffffff, 1);
+    // Main directional light (sun)
+    this.sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
     this.sunLight.position.set(10, 5, 10);
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.width = 2048;
+    this.sunLight.shadow.mapSize.height = 2048;
     this.scene.add(this.sunLight);
     
-    // Create sun visual
+    // Add rim light for dramatic effect
+    const rimLight = new THREE.DirectionalLight(0x4080ff, 0.3);
+    rimLight.position.set(-5, 2, -5);
+    this.scene.add(rimLight);
+    
+    // Create enhanced sun visual
     this.createSun();
   }
   
@@ -137,10 +155,10 @@ export class PlanetRenderer {
   }
   
   createPlanet() {
-    // Create geometry
-    const planetGeometry = new THREE.SphereGeometry(2, 64, 64);
+    // Enhanced geometry for better sphere appearance
+    const planetGeometry = new THREE.SphereGeometry(2, 80, 80);
     
-    // Create dynamic canvas for planet texture
+    // Higher resolution canvas for better detail
     this.planetCanvas = document.createElement('canvas');
     this.planetCanvas.width = 1024;
     this.planetCanvas.height = 512;
@@ -149,22 +167,107 @@ export class PlanetRenderer {
     // Generate initial texture
     this.updatePlanetTexture();
     
-    // Create material with this texture
+    // Create normal map for surface detail
+    this.createNormalMap();
+    
+    // Create enhanced material with realistic properties
     this.planetTexture = new THREE.CanvasTexture(this.planetCanvas);
+    this.planetTexture.wrapS = THREE.RepeatWrapping;
+    this.planetTexture.wrapT = THREE.RepeatWrapping;
+    this.planetTexture.minFilter = THREE.LinearFilter;
+    this.planetTexture.magFilter = THREE.LinearFilter;
+    
     this.planetMaterial = new THREE.MeshStandardMaterial({
       map: this.planetTexture,
-      roughness: 0.7,
-      metalness: 0.1,
+      normalMap: this.normalTexture,
+      normalScale: new THREE.Vector2(0.3, 0.3),
+      roughness: 0.9,
+      metalness: 0.0,
       bumpMap: this.planetTexture,
-      bumpScale: 0.05
+      bumpScale: 0.05,
+      envMapIntensity: 0.3
     });
     
-    // Create mesh
+    // Create mesh with shadow casting
     this.planet = new THREE.Mesh(planetGeometry, this.planetMaterial);
+    this.planet.castShadow = true;
+    this.planet.receiveShadow = true;
     this.scene.add(this.planet);
     
-    // Add atmosphere
+    // Add enhanced atmosphere
     this.createAtmosphere();
+    
+    // Add subtle cloud layer
+    this.createCloudLayer();
+  }
+  
+  createNormalMap() {
+    // Create a normal map canvas for surface detail
+    const normalCanvas = document.createElement('canvas');
+    normalCanvas.width = 512;
+    normalCanvas.height = 256;
+    const normalCtx = normalCanvas.getContext('2d');
+    
+    // Generate procedural normal map for terrain detail
+    const imageData = normalCtx.createImageData(normalCanvas.width, normalCanvas.height);
+    const data = imageData.data;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      const x = (i / 4) % normalCanvas.width;
+      const y = Math.floor((i / 4) / normalCanvas.width);
+      
+      // Create subtle terrain variations using noise
+      const noise = Math.sin(x * 0.1) * Math.cos(y * 0.1) * 0.5 + 0.5;
+      const intensity = noise * 30 + 127;
+      
+      data[i] = intensity;     // R
+      data[i + 1] = intensity; // G  
+      data[i + 2] = 255;       // B (pointing up)
+      data[i + 3] = 255;       // A
+    }
+    
+    normalCtx.putImageData(imageData, 0, 0);
+    this.normalTexture = new THREE.CanvasTexture(normalCanvas);
+  }
+  
+  createCloudLayer() {
+    // Create subtle cloud layer for atmosphere
+    const cloudGeometry = new THREE.SphereGeometry(2.05, 32, 32);
+    const cloudCanvas = document.createElement('canvas');
+    cloudCanvas.width = 512;
+    cloudCanvas.height = 256;
+    const cloudCtx = cloudCanvas.getContext('2d');
+    
+    // Generate cloud texture
+    cloudCtx.fillStyle = 'rgba(255, 255, 255, 0)';
+    cloudCtx.fillRect(0, 0, cloudCanvas.width, cloudCanvas.height);
+    
+    // Add some cloud patches
+    for (let i = 0; i < 20; i++) {
+      const x = Math.random() * cloudCanvas.width;
+      const y = Math.random() * cloudCanvas.height;
+      const radius = Math.random() * 30 + 10;
+      const opacity = Math.random() * 0.3 + 0.1;
+      
+      const gradient = cloudCtx.createRadialGradient(x, y, 0, x, y, radius);
+      gradient.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      
+      cloudCtx.fillStyle = gradient;
+      cloudCtx.beginPath();
+      cloudCtx.arc(x, y, radius, 0, Math.PI * 2);
+      cloudCtx.fill();
+    }
+    
+    const cloudTexture = new THREE.CanvasTexture(cloudCanvas);
+    const cloudMaterial = new THREE.MeshLambertMaterial({
+      map: cloudTexture,
+      transparent: true,
+      opacity: 0.4
+    });
+    
+    this.clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    this.scene.add(this.clouds);
   }
   
   createAtmosphere() {
@@ -173,7 +276,7 @@ export class PlanetRenderer {
       uniforms: {
         "c": { value: 0.3 },
         "p": { value: 3.0 },
-        glowColor: { value: new THREE.Color(0x4ec0fe) },
+        glowColor: { value: new THREE.Color(0x88ccff) },
         viewVector: { value: new THREE.Vector3() }
       },
       vertexShader: `
@@ -206,9 +309,12 @@ export class PlanetRenderer {
   }
   
   updatePlanetTexture() {
-    // Clear canvas
-    this.planetCtx.fillStyle = '#8B4513';  // Brown soil
+    // Create more realistic base terrain
+    this.planetCtx.fillStyle = '#4a3728';  // Darker, richer soil
     this.planetCtx.fillRect(0, 0, this.planetCanvas.width, this.planetCanvas.height);
+    
+    // Add terrain texture variation
+    this.addTerrainTexture();
     
     // Get current model data - get fresh data each time
     const whiteCoverage = this.model.getWhiteDaisyCoverage();
@@ -220,8 +326,8 @@ export class PlanetRenderer {
       bare: 1 - whiteCoverage - blackCoverage
     });
     
-    // Draw daisies with point distribution
-    this.drawDaisyDistribution(whiteCoverage, blackCoverage);
+    // Draw enhanced daisies with realistic distribution
+    this.drawEnhancedDaisyDistribution(whiteCoverage, blackCoverage);
     
     // Always force texture update
     if (this.planetTexture) {
@@ -229,14 +335,87 @@ export class PlanetRenderer {
     }
   }
   
+  addTerrainTexture() {
+    // Add subtle terrain variations
+    const imageData = this.planetCtx.createImageData(this.planetCanvas.width, this.planetCanvas.height);
+    const data = imageData.data;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      const x = (i / 4) % this.planetCanvas.width;
+      const y = Math.floor((i / 4) / this.planetCanvas.width);
+      
+      // Base soil color
+      let r = 74, g = 55, b = 40;
+      
+      // Add noise for terrain variation
+      const noise = Math.sin(x * 0.05) * Math.cos(y * 0.05) * 
+                   Math.sin(x * 0.02) * Math.cos(y * 0.02);
+      const variation = noise * 20;
+      
+      r = Math.max(0, Math.min(255, r + variation));
+      g = Math.max(0, Math.min(255, g + variation));
+      b = Math.max(0, Math.min(255, b + variation));
+      
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+      data[i + 3] = 255;
+    }
+    
+    this.planetCtx.putImageData(imageData, 0, 0);
+  }
+  
+  drawEnhancedDaisyDistribution(whiteCoverage, blackCoverage) {
+    const width = this.planetCanvas.width;
+    const height = this.planetCanvas.height;
+    const ctx = this.planetCtx;
+    
+    // Optimized number of daisies for better performance
+    const totalPoints = 2000; // Reduced from 5000 for much better performance
+    const whitePoints = Math.floor(totalPoints * whiteCoverage);
+    const blackPoints = Math.floor(totalPoints * blackCoverage);
+    
+    // Create clusters for more realistic growth patterns
+    this.drawDaisyClusters(whitePoints, 'white');
+    this.drawDaisyClusters(blackPoints, 'black');
+  }
+  
+  drawDaisyClusters(count, type) {
+    const clusterCount = Math.max(1, Math.floor(count / 100)); // Create clusters
+    const daisiesPerCluster = Math.floor(count / clusterCount);
+    
+    for (let cluster = 0; cluster < clusterCount; cluster++) {
+      // Random cluster center
+      const centerX = Math.random() * this.planetCanvas.width;
+      const centerY = Math.random() * this.planetCanvas.height;
+      const clusterRadius = 30 + Math.random() * 50;
+      
+      // Draw daisies in cluster
+      for (let i = 0; i < daisiesPerCluster; i++) {
+        // Random point within cluster radius
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * clusterRadius;
+        
+        const x = centerX + Math.cos(angle) * distance;
+        const y = centerY + Math.sin(angle) * distance;
+        
+        // Only draw if within canvas bounds
+        if (x >= 0 && x < this.planetCanvas.width && y >= 0 && y < this.planetCanvas.height) {
+          const size = 3 + Math.random() * 4; // Variable daisy sizes
+          this.drawRealisticDaisy(x, y, size, type);
+        }
+      }
+    }
+  }
+  
   drawDaisyDistribution(whiteCoverage, blackCoverage) {
     const width = this.planetCanvas.width;
     const height = this.planetCanvas.height;
-    const pointSize = 5;
+    const pointSize = 6; // Balanced size for performance
     const ctx = this.planetCtx;
     
-    // Calculate the number of daisies based on coverage percentages
-    const totalPoints = 3000; // Adjust based on desired density
+    // Optimized number of daisies for performance
+    const totalPoints = 4000; // Balanced density for performance
     const whitePoints = Math.floor(totalPoints * whiteCoverage);
     const blackPoints = Math.floor(totalPoints * blackCoverage);
     
@@ -269,6 +448,79 @@ export class PlanetRenderer {
     distributePoints(blackPoints, (x, y, size) => {
       this.drawDaisy(ctx, x, y, size, '#202020');
     });
+  }
+  
+  drawRealisticDaisy(x, y, size, type) {
+    const ctx = this.planetCtx;
+    const petalCount = 8;
+    
+    // Determine colors based on type
+    let petalColor, centerColor;
+    if (type === 'white') {
+      petalColor = '#f8f8f8';
+      centerColor = '#ffeb3b';
+    } else {
+      petalColor = '#1a1a1a';
+      centerColor = '#8b4513';
+    }
+    
+    // Draw shadow/base first
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#333333';
+    ctx.beginPath();
+    ctx.arc(x + 1, y + 1, size * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+    
+    // Draw outer petals (larger, darker)
+    ctx.fillStyle = type === 'white' ? '#e0e0e0' : '#0f0f0f';
+    for (let i = 0; i < petalCount; i++) {
+      const angle = (i / petalCount) * Math.PI * 2;
+      const petalX = x + Math.cos(angle) * size * 0.8;
+      const petalY = y + Math.sin(angle) * size * 0.8;
+      
+      ctx.beginPath();
+      ctx.ellipse(
+        petalX, petalY,
+        size * 0.6, size * 0.4,
+        angle,
+        0, Math.PI * 2
+      );
+      ctx.fill();
+    }
+    
+    // Draw inner petals (main color)
+    ctx.fillStyle = petalColor;
+    for (let i = 0; i < petalCount; i++) {
+      const angle = (i / petalCount) * Math.PI * 2;
+      const petalX = x + Math.cos(angle) * size * 0.7;
+      const petalY = y + Math.sin(angle) * size * 0.7;
+      
+      ctx.beginPath();
+      ctx.ellipse(
+        petalX, petalY,
+        size * 0.5, size * 0.3,
+        angle,
+        0, Math.PI * 2
+      );
+      ctx.fill();
+    }
+    
+    // Draw center of daisy with gradient effect
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, size * 0.4);
+    gradient.addColorStop(0, centerColor);
+    gradient.addColorStop(1, type === 'white' ? '#ff9800' : '#654321');
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Add tiny highlight
+    ctx.fillStyle = type === 'white' ? '#ffffff' : '#666666';
+    ctx.beginPath();
+    ctx.arc(x - size * 0.1, y - size * 0.1, size * 0.1, 0, Math.PI * 2);
+    ctx.fill();
   }
   
   drawDaisy(ctx, x, y, size, petalColor) {
@@ -367,9 +619,13 @@ export class PlanetRenderer {
         new THREE.Vector3().subVectors(this.camera.position, this.sunGlow.position);
     }
     
-    // Slowly rotate planet
+    // Slowly rotate planet and clouds at different speeds for realism
     if (this.planet) {
       this.planet.rotation.y += 0.001;
+    }
+    
+    if (this.clouds) {
+      this.clouds.rotation.y += 0.0008; // Slightly slower cloud movement
     }
     
     // Update controls
@@ -391,18 +647,28 @@ export class PlanetRenderer {
   }
   
   update(modelData) {
-    // Update planet texture based on latest model data
-    this.updatePlanetTexture();
+    // Skip most update calls for better performance
+    this.skipFrames++;
+    if (this.skipFrames < this.maxSkipFrames) {
+      return;
+    }
+    this.skipFrames = 0;
     
-    // Update sun based on luminosity
-    this.updateSun(this.model.getSolarLuminosity());
+    const now = Date.now();
     
-    // Update atmosphere based on temperature
-    this.updateAtmosphere(this.model.getPlanetTemperature());
-    
-    // Force the texture to update
-    if (this.planetTexture) {
-      this.planetTexture.needsUpdate = true;
+    // Throttle texture updates for performance
+    if (now - this.lastTextureUpdate > this.textureUpdateInterval) {
+      this.updatePlanetTexture();
+      this.lastTextureUpdate = now;
+      
+      // Force the texture to update
+      if (this.planetTexture) {
+        this.planetTexture.needsUpdate = true;
+      }
+      
+      // Update sun and atmosphere at the same interval to reduce redundant calculations
+      this.updateSun(this.model.getSolarLuminosity());
+      this.updateAtmosphere(this.model.getPlanetTemperature());
     }
   }
 }

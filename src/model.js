@@ -530,10 +530,11 @@ class DaisyworldModel {
       this.step();
     }
     
-    // Schedule next frame with a slight delay for very fast speeds to allow UI updates
+    // Schedule next frame with optimized timing to prevent jerkiness
+    const delay = this.simulationSpeed > 5 ? 32 : this.simulationSpeed > 2 ? 16 : 0;
     setTimeout(() => {
       this.animationFrame = requestAnimationFrame(() => this.simulationLoop());
-    }, this.simulationSpeed > 3 ? 16 : 0); // Add a small delay for high speeds
+    }, delay);
   }
   
   /**
