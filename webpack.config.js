@@ -2,10 +2,12 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
-const isProduction = process.env.NODE_ENV === 'production';
+module.exports = (env, argv) => {
+  const mode = argv.mode || 'development';
+  const isProduction = mode === 'production';
 
-module.exports = {
-  mode: isProduction ? 'production' : 'development',
+  return {
+  mode: mode,
   entry: './src/index.js',
   output: {
     filename: '[name].[contenthash].js',
@@ -80,4 +82,5 @@ module.exports = {
       }
     })
   ]
+};
 };

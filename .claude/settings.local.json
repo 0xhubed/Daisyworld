@@ -29,7 +29,8 @@
       "Bash(npm start)",
       "Bash(npm ls:*)",
       "Bash(sed:*)",
-      "Bash(vercel:*)"
+      "Bash(vercel:*)",
+      "Bash(curl:*)"
     ]
   },
   "enableAllProjectMcpServers": false
