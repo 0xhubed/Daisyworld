@@ -2,8 +2,8 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-  mode: 'development',
-  entry: './src/ui.js',
+  mode: 'production',
+  entry: path.resolve(__dirname, 'src/ui.js'),
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist'),
@@ -37,7 +37,7 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       title: 'Daisyworld Simulation',
-      template: './index.html'
+      template: path.resolve(__dirname, 'index.html')
     })
   ]
 };

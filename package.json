@@ -2,7 +2,7 @@
   "name": "daisyworld",
   "version": "0.1.0",
   "description": "Interactive simulation of James Lovelock's Daisyworld model",
-  "main": "src/app.js",
+  "main": "dist/bundle.js",
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
