@@ -2,11 +2,8 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
-// Always use production config for simplicity
-const isProduction = true;
-
 module.exports = {
-  mode: isProduction ? 'production' : 'development',
+  mode: 'production',
   entry: './src/index.js',
   output: {
     filename: '[name].[contenthash].js',
@@ -59,16 +56,16 @@ module.exports = {
       {
         test: /\.css$/,
         use: [
-          isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
+          MiniCssExtractPlugin.loader,
           'css-loader'
         ]
       }
     ]
   },
   plugins: [
-    ...(isProduction ? [new MiniCssExtractPlugin({
+    new MiniCssExtractPlugin({
       filename: '[name].[contenthash].css'
-    })] : []),
+    }),
     new HtmlWebpackPlugin({
       template: './index.html',
       minify: {
